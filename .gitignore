@@ -1,0 +1,14 @@
+help/
+*.o
+*.lo
+*.la
+*.so
+# lib/ #
+CHANGES.txt
+# vim #
+*.swp
+*.vim
+*.viminfo
+.libs/
+.idea/
+src/friso

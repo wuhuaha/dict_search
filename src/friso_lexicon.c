@@ -304,7 +304,9 @@ FRISO_API void friso_dic_load(
 
     fstring _word;
     char _sbuffer[512];
+    char _pbuffer[512];
     fstring _syn;
+	fstring _pinyin;
     friso_array_t sywords;
     uint_t _fre;
 
@@ -364,6 +366,13 @@ FRISO_API void friso_dic_load(
                 _fre = atoi( _buffer );
             }
 
+
+			//4. get the word pinyin if it available.
+            _pinyin = NULL;
+            if ( string_split_next( &sse, _buffer ) != NULL ) {
+                _pinyin = string_copy( _buffer, _pbuffer, strlen(_buffer) );
+            }
+
             /**
              * Here:
              * split the synonyms words with mark "," 
@@ -380,6 +389,20 @@ FRISO_API void friso_dic_load(
                 }
                 sywords = array_list_trim( sywords );
             }
+            
+			//单个字转拼音，只取最常用的一个
+			if ( _pinyin != NULL ) {
+				if(get_utf8_bytes(_word[0]) == strlen(_word)){
+					char _p_tmp_buffer[512];
+                	string_split_reset( &sse, ",", _pbuffer );
+					_pinyin = NULL;
+					if ( string_split_next( &sse, _pbuffer ) != NULL ) {
+             		   _pinyin = string_copy( _pbuffer, _p_tmp_buffer, strlen(_pbuffer) );
+            		}
+                }
+				printf("pinyin of %s is %s\n", _word, _pinyin);
+            }
+
 
             //4. add the word item
             friso_dic_add_with_fre( 
