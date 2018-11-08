@@ -208,7 +208,7 @@ FRISO_API void friso_dic_add_pinyin(
 		if(old_entry != NULL){
 			if(old_entry->py == NULL){
 				old_entry->py = pinyin;
-                printf("add pinyin:%s to word:%s\n", old_entry->py, old_entry->word);
+                //printf("add pinyin:%s to word:%s\n", old_entry->py, old_entry->word);
 			}
 		}else{
         	printf("None this entry,so,did't add pinyin");

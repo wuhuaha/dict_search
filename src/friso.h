@@ -106,6 +106,7 @@ typedef lex_entry_cdt * lex_entry_t;
 
 /*the segmentation token entry.*/
 #define __HITS_WORD_LENGTH__ 64
+#define __HITS_PINYIN_LENGTH__ 128
 
 typedef struct {
     uchar_t type;    //type of the word. (item of friso_lex_t)
@@ -114,7 +115,7 @@ typedef struct {
     char pos;        //part of speech.
     int offset;     //start offset of the word.
     char word[__HITS_WORD_LENGTH__];
-    //char py[0];
+    char py[__HITS_PINYIN_LENGTH__];
 } friso_token_entry;
 typedef friso_token_entry * friso_token_t;
 

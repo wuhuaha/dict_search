@@ -1521,6 +1521,8 @@ FRISO_API friso_token_t next_mmseg_token(
             task->token->length = lex->length;
             task->token->rlen = lex->rlen;
             task->token->offset = lex->offset;
+            strncpy(task->token->py, lex->py, __HITS_PINYIN_LENGTH__);
+            //printf("task->py:%s",task->token->py);
             task->token->word[len] = '\0';
 
             //check and append the synonyms words

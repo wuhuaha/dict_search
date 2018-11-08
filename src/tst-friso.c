@@ -123,6 +123,7 @@ int main(int argc, char **argv)
     while ( 1 ) {
         print("friso>> ");
         getLine( stdin, line );
+        char pinyin[1024] = "";
         //exit the programe
         if ( strcasecmp( line, "quit" ) == 0 ) {
             ___EXIT_INFO___
@@ -138,7 +139,10 @@ int main(int argc, char **argv)
             //printf("%s[%d, %d, %d] ", task->token->word, 
             //        task->token->offset, task->token->length, task->token->rlen );
             printf("%s ", task->token->word );
+            strcat(pinyin, task->token->py);
+            strcat(pinyin, ",");
         }
+        printf("%s",pinyin);
         //}
         e_time = clock();
         printf("\nDone, cost < %fsec\n", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
