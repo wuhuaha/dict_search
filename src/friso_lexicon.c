@@ -42,7 +42,8 @@ __STATIC_API__ void default_fdic_callback( hash_entry_t e )
     friso_array_t syn;
     lex_entry_t lex = ( lex_entry_t ) e->_val;
     //free the lex->word
-    FRISO_FREE( lex->word );    
+    FRISO_FREE( lex->word ); 
+    FRISO_FREE( lex->py );   
     //free the lex->syn if it is not NULL
     if ( lex->syn != NULL ) {
         syn = lex->syn;
@@ -87,7 +88,7 @@ FRISO_API lex_entry_t new_lex_entry(
     e->word   = word;
     e->syn    = syn;            //synoyum words array list.
     e->pos    = NULL;            //part of speech array list.
-    //e->py    = NULL; //set to NULL first.
+    e->py    = NULL; //set to NULL first.
     e->fre    = fre;
     e->length = (uchar_t) length;    //length
     e->rlen   = (uchar_t) length;    //set to length by default.
@@ -113,6 +114,7 @@ FRISO_API void free_lex_entry_full( lex_entry_t e )
 
     //free the lex->word
     FRISO_FREE( e->word );
+    FRISO_FREE( e->py );
     //free the lex->syn if it is not NULL
     if ( e->syn != NULL ) {
         syn = e->syn;
@@ -188,6 +190,28 @@ FRISO_API void friso_dic_add_with_fre(
         	if ( olex != NULL ) {
             	free_lex_entry_full((lex_entry_t)olex);
         	}
+		}
+    }
+}
+
+//添加拼音
+FRISO_API void friso_dic_add_pinyin( 
+        friso_dic_t dic,
+        friso_lex_t lex,
+        fstring word, 
+        fstring pinyin ) 
+{   
+	lex_entry_t old_entry = NULL;
+    if(pinyin == NULL) return;
+    if ( lex >= 0 && lex < __FRISO_LEXICON_LENGTH__ ) {
+        old_entry = (lex_entry_t)hash_get_value(dic[lex], word);
+		if(old_entry != NULL){
+			if(old_entry->py == NULL){
+				old_entry->py = pinyin;
+                printf("add pinyin:%s to word:%s\n", old_entry->py, old_entry->word);
+			}
+		}else{
+        	printf("None this entry,so,did't add pinyin");
 		}
     }
 }
@@ -397,16 +421,24 @@ FRISO_API void friso_dic_load(
                 	string_split_reset( &sse, ",", _pbuffer );
 					_pinyin = NULL;
 					if ( string_split_next( &sse, _pbuffer ) != NULL ) {
-             		   _pinyin = string_copy( _pbuffer, _p_tmp_buffer, strlen(_pbuffer) );
+             		   string_copy( _pbuffer, _p_tmp_buffer, strlen(_pbuffer) );
+                       _pinyin = string_copy_heap( _p_tmp_buffer, strlen(_p_tmp_buffer) );
             		}
+                }else{
+                       _pinyin = string_copy_heap( _pbuffer, strlen(_pbuffer) );
                 }
-				printf("pinyin of %s is %s\n", _word, _pinyin);
+				//printf("pinyin of %s is %s\n", _word, _pinyin);
             }
 
 
             //4. add the word item
             friso_dic_add_with_fre( 
                     friso->dic, lex, _word, sywords, _fre );
+            //add pinyin    
+            if(_pinyin != NULL ){
+                friso_dic_add_pinyin( 
+                    friso->dic, lex, _word, _pinyin);
+            }
         } 
 
         fclose( _stream );

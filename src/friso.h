@@ -96,7 +96,7 @@ typedef struct {
     uchar_t ctrlMask;   //function control mask, like append the synoyums words.
     uint_t offset;      //offset index.
     fstring word;
-    //fstring py;       //pinyin of the word.(invalid)
+    fstring py;       //pinyin of the word.
     friso_array_t syn;  //synoyums words.
     friso_array_t pos;  //part of speech.
     uint_t fre;         //single word frequency.
