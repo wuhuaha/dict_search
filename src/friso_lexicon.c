@@ -181,7 +181,7 @@ FRISO_API void friso_dic_add_with_fre(
 		if(old_entry != NULL){
 			if((!old_entry->fre)&&(frequency)){
 				old_entry->fre = frequency;
-                printf("add fre:%d\n", old_entry->fre);
+                //printf("add fre:%d\n", old_entry->fre);
 			}
 		}else{
         	olex = hash_put_mapping( dic[lex], word, 

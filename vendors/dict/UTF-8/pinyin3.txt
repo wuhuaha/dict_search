@@ -2001,6 +2001,7 @@
 傹/null/null/jing4
 傺/null/null/chi4
 傻/null/null/sha3
+傻子/null/null/sha3,zi5
 傼/null/null/han4
 傽/null/null/zhang1
 傾/null/null/qing1

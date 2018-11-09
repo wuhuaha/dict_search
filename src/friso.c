@@ -1381,11 +1381,13 @@ FRISO_API friso_token_t next_mmseg_token(
          */
         lex = ( lex_entry_t ) link_list_remove_first( task->pool );
         memcpy(task->token->word, lex->word, lex->length);
+        memcpy(task->token->py, lex->word, lex->length);
         task->token->type = lex->type;
         task->token->length = lex->length;
         task->token->rlen = lex->rlen;
         task->token->offset = lex->offset;
         task->token->word[lex->length] = '\0';
+        task->token->py[lex->length] = '\0';
 
         /* check and handle the english synonyms words append mask.
          *     Also we have to close the mask after finish the operation.
@@ -1521,7 +1523,8 @@ FRISO_API friso_token_t next_mmseg_token(
             task->token->length = lex->length;
             task->token->rlen = lex->rlen;
             task->token->offset = lex->offset;
-            strncpy(task->token->py, lex->py, __HITS_PINYIN_LENGTH__);
+            snprintf(task->token->py, __HITS_PINYIN_LENGTH__, "%s", lex->py);
+            //strncpy(task->token->py, lex->py, __HITS_PINYIN_LENGTH__);
             //printf("task->py:%s",task->token->py);
             task->token->word[len] = '\0';
 

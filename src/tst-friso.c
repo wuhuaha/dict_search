@@ -119,11 +119,12 @@ int main(int argc, char **argv)
 
     //set the task.
     task = friso_new_task();
+    char pinyin[1024] = "";
 
     while ( 1 ) {
         print("friso>> ");
         getLine( stdin, line );
-        char pinyin[1024] = "";
+        pinyin[0] = '\0';
         //exit the programe
         if ( strcasecmp( line, "quit" ) == 0 ) {
             ___EXIT_INFO___
@@ -139,8 +140,10 @@ int main(int argc, char **argv)
             //printf("%s[%d, %d, %d] ", task->token->word, 
             //        task->token->offset, task->token->length, task->token->rlen );
             printf("%s ", task->token->word );
-            strcat(pinyin, task->token->py);
+            if(strlen(pinyin)&&strlen(task->token->py))
             strcat(pinyin, ",");
+            strcat(pinyin, task->token->py);
+            task->token->py[0] = '\0';
         }
         printf("%s",pinyin);
         //}
