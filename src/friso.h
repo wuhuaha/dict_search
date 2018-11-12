@@ -365,6 +365,13 @@ FRISO_API lex_entry_t friso_dic_get( friso_dic_t, friso_lex_t, fstring );
  */
 FRISO_API uint_t friso_spec_dic_size( friso_dic_t, friso_lex_t );
 FRISO_API uint_t friso_all_dic_size( friso_dic_t );
+
+//通过单个字单个字的方式获取词的拼音
+FRISO_API fstring pinyin_single_get( 
+		friso_dic_t dic, 
+        friso_lex_t lex, 
+        fstring word,
+        fstring py);
 /* }}} lexicon interface define :: end*/
 
 #endif /*end ifndef*/

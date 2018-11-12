@@ -1373,6 +1373,7 @@ FRISO_API friso_token_t next_mmseg_token(
     lex_entry_t lex = NULL, tmp = NULL, sword = NULL;
 
     /* {{{ task word pool check */
+
     if ( ! link_list_empty( task->pool ) ) {
         /*
          * load word from the word poll if it is not empty.
@@ -1381,13 +1382,16 @@ FRISO_API friso_token_t next_mmseg_token(
          */
         lex = ( lex_entry_t ) link_list_remove_first( task->pool );
         memcpy(task->token->word, lex->word, lex->length);
-        memcpy(task->token->py, lex->word, lex->length);
         task->token->type = lex->type;
         task->token->length = lex->length;
         task->token->rlen = lex->rlen;
         task->token->offset = lex->offset;
         task->token->word[lex->length] = '\0';
+        memcpy(task->token->py, lex->word, lex->length);
         task->token->py[lex->length] = '\0';
+
+        printf("\n英文及标点:lex->word:%s\n",task->token->word);
+
 
         /* check and handle the english synonyms words append mask.
          *     Also we have to close the mask after finish the operation.
@@ -1462,6 +1466,8 @@ FRISO_API friso_token_t next_mmseg_token(
             //else lex = next_simple_cjk( friso, config, task );
             lex = config->next_cjk(friso, config, task);
 
+            printf("\n中文:lex->word:%s",lex->word);
+
             if ( lex == NULL ) continue;    //find a stopwrod.
             lex->offset = task->idx - lex->rlen;
 
@@ -1508,8 +1514,10 @@ FRISO_API friso_token_t next_mmseg_token(
                     free_string_buffer(sb);
                     tmp = NULL; sb = NULL;
                 }
-            }
 
+            }
+            
+           
             /*
              * copy the lex_entry to the result token
              *
@@ -1523,10 +1531,18 @@ FRISO_API friso_token_t next_mmseg_token(
             task->token->length = lex->length;
             task->token->rlen = lex->rlen;
             task->token->offset = lex->offset;
-            snprintf(task->token->py, __HITS_PINYIN_LENGTH__, "%s", lex->py);
-            //strncpy(task->token->py, lex->py, __HITS_PINYIN_LENGTH__);
-            //printf("task->py:%s",task->token->py);
             task->token->word[len] = '\0';
+
+            /*if the pinyin of the word is null ,get the pinyin of single word*/
+            if((lex->py == NULL)) {
+                task->token->py[0] = '\0';
+                pinyin_single_get(friso->dic, __LEX_CJK_WORDS__, task->token->word, task->token->py);                
+            }else{
+                snprintf(task->token->py, __HITS_PINYIN_LENGTH__, "%s", lex->py);
+            }
+            printf("\n拼音:%s\n",task->token->py);
+            
+            
 
             //check and append the synonyms words
             if ( config->add_syn && lex->syn != NULL ) {
@@ -1599,6 +1615,9 @@ FRISO_API friso_token_t next_mmseg_token(
                 task->token->rlen    = task->bytes;
                 task->token->offset  = task->idx - task->bytes;
                 task->token->word[1] = '\0';
+
+                printf("\n英文标点:lex->word:%s",task->token->word);
+
                 return task->token;
 
                 //continue
@@ -1648,6 +1667,8 @@ FRISO_API friso_token_t next_mmseg_token(
             task->token->offset = lex->offset;
             task->token->word[lex->length] = '\0';
 
+            printf("\n英文:lex->word:%s",task->token->word);
+
             /* If sword is NULL, continue to check and append 
              * tye synoyums words for the current lex_entry_t.
              * */
@@ -1678,6 +1699,9 @@ FRISO_API friso_token_t next_mmseg_token(
             task->token->length = task->bytes;
             task->token->offset = task->idx - task->bytes;
             task->token->word[task->bytes] = '\0';
+
+            printf("\n中文标点:lex->word:%s",task->token->word);
+
             return task->token;
         }
         /* }}} */
@@ -1696,6 +1720,7 @@ FRISO_API friso_token_t next_mmseg_token(
             task->token->length = task->bytes;
             task->token->offset = task->idx - task->bytes;
             task->token->word[task->bytes] = '\0';
+            printf("\n未识别:lex->word:%s\n",task->token->word);
             return task->token;
         }
         /* }}} */

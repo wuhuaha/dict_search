@@ -119,7 +119,8 @@ int main(int argc, char **argv)
 
     //set the task.
     task = friso_new_task();
-    char pinyin[1024] = "";
+    char pinyin[4096] = {0};
+    unsigned int idex = 0, j = 0 ; 
 
     while ( 1 ) {
         print("friso>> ");
@@ -134,18 +135,24 @@ int main(int argc, char **argv)
         //set the task text.
         friso_set_text( task, line );
         println("分词结果:");
+        idex = 0;
 
         s_time = clock();
         while ( ( config->next_token( friso, config, task ) ) != NULL ) {
             //printf("%s[%d, %d, %d] ", task->token->word, 
             //        task->token->offset, task->token->length, task->token->rlen );
-            printf("%s ", task->token->word );
-            if(strlen(pinyin)&&strlen(task->token->py))
-            strcat(pinyin, ",");
-            strcat(pinyin, task->token->py);
-            task->token->py[0] = '\0';
+            
+            printf("result: word:%s ,pinyin:%s\n", task->token->word ,task->token->py);
+            j = 0;
+            while( task->token->py[j] != '\0'){
+                pinyin[idex++] = task->token->py[j++];
+            }
+            pinyin[idex] = '\0';   
+            printf("temporary pinyin result:%s\n",pinyin);  
+            pinyin[idex++] = ',';          
         }
-        printf("%s",pinyin);
+        pinyin[idex] = '\0';       
+        print(pinyin);
         //}
         e_time = clock();
         printf("\nDone, cost < %fsec\n", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );

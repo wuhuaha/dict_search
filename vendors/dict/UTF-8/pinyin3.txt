@@ -147,6 +147,9 @@
 一步一个脚印/null/null/yi1,bu4,yi1,ge4,jiao3,yin4
 一步一步/null/null/yi2,bu4,yi2,bu4
 一步步/null/null/yi2,bu4,bu4
+一下/null/null/yi2,xia4
+一会儿/null/null/yi2,hui4,er2
+一气/null/null/yi2,qi4
 一步步地/null/null/yi2,bu4,bu4,de5
 一毛不拔/null/null/yi1,mao2,bu4,ba2
 一毫不差/null/null/yi1,hao2,bu4,cha1

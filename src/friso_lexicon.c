@@ -628,3 +628,35 @@ FRISO_API uint_t friso_all_dic_size(
 
     return size;
 }
+
+//通过单个字单个字的方式获取词的拼音
+FRISO_API fstring pinyin_single_get( 
+		friso_dic_t dic, 
+        friso_lex_t lex, 
+        fstring word,
+        fstring py) 
+{
+	lex_entry_t tmp;
+	char key[__HITS_PINYIN_LENGTH__] = {0};
+	register uint_t bytes = 0, idex = 0, length = 0;
+
+	length = strlen(word);
+    //printf("word:%s,length:%d",word,length);
+	
+	if ( lex >= 0 && lex < __FRISO_LEXICON_LENGTH__ ) {
+        
+		while((bytes = get_utf8_bytes(word[idex]))&&(idex < length)){
+			memcpy(key, word + idex, bytes);
+			key[bytes] = '\0';
+        	tmp =  ( lex_entry_t ) hash_get_value( dic[lex], key );
+            if(idex) strcat(py, ",");
+			strcat(py,tmp->py);
+			//printf("single word:%s,pinyin:%s,now py:%s\n",key, tmp->py, py);
+			idex += bytes;
+                       
+		}
+        
+    }
+   
+    return NULL;		
+}			
