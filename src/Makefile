@@ -37,11 +37,11 @@ share: $(OBJECT)
 ##debug: $(SOURCE)
 ##    $(CC) $(CFLAGS) $(SOURCE) -o friso
 
-friso: tst-friso.o
-	$(CC) tst-friso.o -o ./friso -L. -lfriso
+friso: fy-friso.o
+	$(CC) fy-friso.o -o ./friso -L. -lfriso
 
-tst-friso.o: friso_API.h friso.h tst-friso.c
-	$(CC) $(FFLAGS) -c tst-friso.c
+fy-friso.o: friso_API.h friso.h fy-friso.c
+	$(CC) $(FFLAGS) -c fy-friso.c
 
 friso.o: friso.c friso.h friso_API.h
 	$(CC) $(FFLAGS) -c friso.c -l$(ELIB)
