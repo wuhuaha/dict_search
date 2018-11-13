@@ -46,6 +46,26 @@ static fstring getLine( FILE *fp, fstring __dst )
     return ( c == EOF && cs == __dst ) ? NULL : __dst;
 }
 
+
+char word_type[16][32] = {
+    "CJK_WORDS",
+    "CJK_UNITS",
+    "ECM_WORDS",
+    "CEM_WORDS",
+    "CN_LNAME",
+    "CN_SNAME",
+    "CN_DNAME1",
+    "CN_DNAME2",
+    "CN_LNA",
+    "STOPWORDS",
+    "ENPUN_WORDS",
+    "EN_WORDS",
+    "OTHER_WORDS",
+    "NCSYN_WORDS",
+    "PUNC_WORDS",
+    "UNKNOW_WORDS"
+};
+
 /*static void printcode( fstring str ) {
   int i,length;
   length = strlen( str );
@@ -120,6 +140,7 @@ int main(int argc, char **argv)
     //set the task.
     task = friso_new_task();
     char pinyin[4096] = {0};
+    //char word[4096] = {0};
     unsigned int idex = 0, j = 0 ; 
 
     while ( 1 ) {
@@ -139,21 +160,19 @@ int main(int argc, char **argv)
 
         s_time = clock();
         while ( ( config->next_token( friso, config, task ) ) != NULL ) {
-            //printf("%s[%d, %d, %d] ", task->token->word, 
+            //printf("word:%s[%d, %d, %d] ", task->token->word, 
             //        task->token->offset, task->token->length, task->token->rlen );
             
-            printf("result: word:%s ,pinyin:%s\n", task->token->word ,task->token->py);
+            printf("result: word:%s, pinyin:%s, type:%s\n", task->token->word ,task->token->py, word_type[task->token->type]);
             j = 0;
             while( task->token->py[j] != '\0'){
                 pinyin[idex++] = task->token->py[j++];
-            }
-            pinyin[idex] = '\0';   
-            printf("temporary pinyin result:%s\n",pinyin);  
+            }  
             pinyin[idex++] = ',';          
         }
-        pinyin[idex] = '\0';       
-        print(pinyin);
-        //}
+        pinyin[--idex] = '\0';       
+        printf("\n完整拼音：%s\n",pinyin);
+ 
         e_time = clock();
         printf("\nDone, cost < %fsec\n", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
 

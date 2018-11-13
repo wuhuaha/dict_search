@@ -39,10 +39,10 @@ typedef enum {
     __LEX_STOPWORDS__ = 9,
     __LEX_ENPUN_WORDS__ = 10,
     __LEX_EN_WORDS__ = 11,
-    __LEX_OTHER_WORDS__ = 15,
-    __LEX_NCSYN_WORDS__ = 16,
-    __LEX_PUNC_WORDS__ = 17,        //punctuations
-    __LEX_UNKNOW_WORDS__ = 18        //unrecognized words.
+    __LEX_OTHER_WORDS__ = 12,
+    __LEX_NCSYN_WORDS__ = 13,
+    __LEX_PUNC_WORDS__ = 14,        //punctuations
+    __LEX_UNKNOW_WORDS__ = 15        //unrecognized words.
 } friso_lex_t;
 
 typedef friso_hash_t * friso_dic_t;

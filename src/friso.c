@@ -1372,6 +1372,8 @@ FRISO_API friso_token_t next_mmseg_token(
     string_buffer_t sb = NULL;
     lex_entry_t lex = NULL, tmp = NULL, sword = NULL;
 
+    task->token->py[0] = '\0';
+
     /* {{{ task word pool check */
 
     if ( ! link_list_empty( task->pool ) ) {
@@ -1390,7 +1392,7 @@ FRISO_API friso_token_t next_mmseg_token(
         memcpy(task->token->py, lex->word, lex->length);
         task->token->py[lex->length] = '\0';
 
-        printf("\n英文及标点:lex->word:%s\n",task->token->word);
+        //printf("\n英文:lex->word:%s\n",task->token->word);
 
 
         /* check and handle the english synonyms words append mask.
@@ -1466,7 +1468,7 @@ FRISO_API friso_token_t next_mmseg_token(
             //else lex = next_simple_cjk( friso, config, task );
             lex = config->next_cjk(friso, config, task);
 
-            printf("\n中文:lex->word:%s",lex->word);
+            //printf("\n中文:lex->word:%s",lex->word);
 
             if ( lex == NULL ) continue;    //find a stopwrod.
             lex->offset = task->idx - lex->rlen;
@@ -1540,7 +1542,7 @@ FRISO_API friso_token_t next_mmseg_token(
             }else{
                 snprintf(task->token->py, __HITS_PINYIN_LENGTH__, "%s", lex->py);
             }
-            printf("\n拼音:%s\n",task->token->py);
+            //printf("        拼音:%s\n",task->token->py);
             
             
 
@@ -1615,8 +1617,10 @@ FRISO_API friso_token_t next_mmseg_token(
                 task->token->rlen    = task->bytes;
                 task->token->offset  = task->idx - task->bytes;
                 task->token->word[1] = '\0';
+                task->token->py[0]  = task->buffer[0];
+                task->token->py[1] = '\0';
 
-                printf("\n英文标点:lex->word:%s",task->token->word);
+                //printf("\n英文标点:lex->word:%s",task->token->word);
 
                 return task->token;
 
@@ -1666,8 +1670,10 @@ FRISO_API friso_token_t next_mmseg_token(
             task->token->rlen   = lex->rlen;
             task->token->offset = lex->offset;
             task->token->word[lex->length] = '\0';
+            memcpy(task->token->py, lex->word, lex->length);
+            task->token->py[lex->length] = '\0';
 
-            printf("\n英文:lex->word:%s",task->token->word);
+            //printf("\n英文:lex->word:%s",task->token->word);
 
             /* If sword is NULL, continue to check and append 
              * tye synoyums words for the current lex_entry_t.
@@ -1699,8 +1705,10 @@ FRISO_API friso_token_t next_mmseg_token(
             task->token->length = task->bytes;
             task->token->offset = task->idx - task->bytes;
             task->token->word[task->bytes] = '\0';
+            memcpy(task->token->py, task->buffer, task->bytes);
+            task->token->py[task->bytes] = '\0';
 
-            printf("\n中文标点:lex->word:%s",task->token->word);
+            //printf("\n中文标点:lex->word:%s",task->token->word);
 
             return task->token;
         }
@@ -1720,7 +1728,10 @@ FRISO_API friso_token_t next_mmseg_token(
             task->token->length = task->bytes;
             task->token->offset = task->idx - task->bytes;
             task->token->word[task->bytes] = '\0';
-            printf("\n未识别:lex->word:%s\n",task->token->word);
+            memcpy(task->token->py, task->buffer, task->bytes);
+            task->token->py[task->bytes] = '\0';
+
+            //printf("\n未识别:lex->word:%s\n",task->token->word);
             return task->token;
         }
         /* }}} */
