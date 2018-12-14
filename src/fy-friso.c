@@ -11,9 +11,17 @@
 #include "friso.h"
 
 #include <stdio.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/types.h>
+#include <errno.h>
+#include <sys/wait.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <signal.h>
 
 #define __LENGTH__ 15
 #define __INPUT_LENGTH__ 20480
@@ -21,31 +29,24 @@
     println("Thanks for trying friso.");        \
 break;
 
+#ifndef TRUE
+#define TRUE    1
+#endif
+
+#ifndef FALSE
+#define FALSE   0
+#endif
+
+#define RUN_ARG_NUM     1
+#define BACKLOG         5       //侦听队列长度
+#define READ_TIMEOUT_SEC     1//秒
+#define READ_TIMEOUT_USEC    0//微秒
+#define READ_TIMEOUT_MSEC    100//100ms
+
 #define ___ABOUT___                    \
     println("+-----------------------------------------------------------+");    \
     println("| friso - a chinese word segmentation writen by c.          |");    \
-    println("| bug report email - chenxin619315@gmail.com.               |");    \
-    println("| or: visit http://code.google.com/p/friso.                 |");    \
-    println("|     java edition for http://code.google.com/p/jcseg       |");    \
-    println("| type 'quit' to exit the program.                          |");    \
     println("+-----------------------------------------------------------+");
-
-//read a line from a command line.
-static fstring getLine( FILE *fp, fstring __dst ) 
-{
-    register int c;
-    register fstring cs;
-
-    cs = __dst;
-    while ( ( c = getc( fp ) ) != EOF ) {
-        if ( c == '\n' ) break;
-        *cs++ = c; 
-    }
-    *cs = '\0';
-
-    return ( c == EOF && cs == __dst ) ? NULL : __dst;
-}
-
 
 char word_type[16][32] = {
     "CJK_WORDS",
@@ -66,48 +67,287 @@ char word_type[16][32] = {
     "UNKNOW_WORDS"
 };
 
-/*static void printcode( fstring str ) {
-  int i,length;
-  length = strlen( str );
-  printf("str:length=%d\n", length );
-  for ( i = 0; i < length; i++ ) {
-  printf("%d ", str[i] );
+/*service 配置*/
+typedef struct run_arg_tag{
+    int     listen_fd;      //侦听socket
+    int     port;           //端口
+    char    path[256];      //配置文件路径
+}SZ_RUN_ARG_S;
+
+#ifndef SAFE_CLOSE_SOCKET
+#define SAFE_CLOSE_SOCKET(fd){\
+    if (fd > 0){\
+        close(fd);\
+        fd = 0;\
+    }\
+}
+#endif
+
+static int run_flag = TRUE;     //运行控制变量
+SZ_RUN_ARG_S g_sz_run_arg = {0};  //运行参数，通过参数传入
+
+/**  
+* @Description:解析进程入参
+* @argc[IN]- 参数个数
+* @argv[IN]- 参数列表
+* @pst_arg[IN/OUT] 解析后的参数
+* @return 成功:0 失败:-1
+*/
+static int get_options(int argc, char *argv[], SZ_RUN_ARG_S *pst_arg)
+{
+    int ch = 0;  
+    int argc_num = 0;
+    int i = 0;
+    
+
+    if (NULL == pst_arg){
+        return -1;
+    }
+
+    for(; i< argc; i++){
+        printf("argv[%d]: %s", i, argv[i]);
+    }
+    
+    /*解析参数*/
+    while ((ch = getopt(argc,argv,"P:L:"))!=-1)  
+    {  
+        switch(ch)  
+        {              
+            case 'P': { /*侦听端口*/
+                pst_arg->port = atoi(optarg);
+                argc_num++;
+                break;
+            } 
+            case 'L':{  /*云服务器地址*/ 
+                (void)snprintf(pst_arg->path, sizeof(pst_arg->path), "%s", optarg);
+                argc_num++;
+                break;  
+            }
+            default: {
+                printf("arguments error!\n");
+                break;
+            }
+        }  
+    }
+
+    if((pst_arg->port == 0) || (pst_arg->path[0] == 0) ){
+        printf("arguments error!\n You must do like: friso -P 8080 -L /usr/friso.ini");
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
+*侦听socket初始化
+*/
+static int init_listen_sock(unsigned short port, int *listen_socket)
+{
+    int opt = 1;
+    int fd = -1;
+    struct sockaddr_in servaddr;
+    
+    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+        printf("create server socket error:%s (errno:%d)", strerror(errno), errno);
+        return -1;
+    }
+
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = htons(port);
+
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    if (bind(fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == -1) {
+        printf("bind server socket error:%s(errno:%d)", strerror(errno), errno);
+        close(fd);
+        return -1;
+    }
+    
+    if (listen(fd, BACKLOG) == -1) {
+        printf("listen server socket error:%s(errno:%d)", strerror(errno), errno);
+        close(fd);
+        return -1;
+    }
+
+    *listen_socket = fd;
+    
+    return 0;
+}
+
+/*
+*数据接收接口
+*/
+static int data_recv(int socket, char *buff, int data_len)
+{
+    int nbytes = 0;
+    
+    if ((socket <= 0) || (NULL == buff) || (0 == data_len)){
+        return -1;
+    }
+
+    while (nbytes <= 0) {   
+        nbytes = recv(socket, buff, data_len, 0);
+        if (0 == nbytes) {
+            printf("receive socket shutdown");            
+            return -1;
+        }
+        else if (-1 == nbytes) {
+            if ((errno == EINTR) || (errno == EAGAIN) || (errno == EWOULDBLOCK)){
+                continue;
+            } 
+            printf("receive error:%s(errno:%d)", strerror(errno), errno);
+            return -1;
+        }        
+    }
+    
+    return nbytes;
+}
+
+/*
+*数据发送接口
+*/
+static int data_send(int socket, char *buff, unsigned int data_len)
+{   
+    int wrote = 0;
+    int len = data_len;
+    char *ptr = buff;
+
+    if ((socket <= 0) || (NULL == buff) || (0 == data_len)){
+        return -1;
+    }
+
+    while (len) {
+        wrote = send(socket, ptr, len, 0);
+        if (wrote == -1) {
+            if ((errno == EINTR) || (errno == EAGAIN) || (errno == EWOULDBLOCK)){
+                continue;
+            }
+            else {
+                printf("send to cliend error:%s(errno:%d)", strerror(errno), errno);
+                return -1;
+            }
+        }
+
+        ptr += wrote;
+        len -= wrote;
   }
-  putchar('\n');
-  }*/
+
+    return 0;
+}
+
+/* 
+ *子进程退出的时候，会发送SIGCHLD信号，默认的POSIX不响应， 
+ *所以，用该函数处理SIGCHLD信号便可，同时使用signal设置处理信号量的规则(或跳转到的函数) 
+ */  
+static void sig_handle( int num )  
+{  
+    int status;  
+    pid_t pid;  
+  
+    while( (pid = waitpid(-1,&status,WNOHANG)) > 0)  
+    {  
+        if ( WIFEXITED(status) )  
+        {  
+            printf("child process revoked. pid[%6d], exit code[%d]\n",pid, WEXITSTATUS(status));  
+        }  
+        else { 
+            printf("child process revoked.but ...\n");  
+        }
+    }  
+} 
+/**  
+* @Description:业务处理函数
+* @arg: [IN] 
+* @return 成功: 0 失败: -1
+*/
+static int work_child_process( int client_sockfd, friso_t friso, friso_config_t config)
+{
+    
+        friso_task_t task; 
+        clock_t s_time, e_time;
+        char pinyin[4096] = {0};
+        char word[4096] = {0};
+        unsigned int idex = 0,j = 0, data_len = 0; 
+        
+        while(1)
+        {
+            idex = 0;
+            pinyin[0] = 0;
+            data_len = data_recv(client_sockfd, word, sizeof(word));
+            printf("word:%s,data_len:%d\n",word, data_len);
+            //set the task.
+            task = friso_new_task();
+            friso_set_text( task, word );
+            println("分词结果:");
+            s_time = clock();
+            while ( ( config->next_token( friso, config, task ) ) != NULL ) {
+            //printf("word:%s[%d, %d, %d] ", task->token->word, 
+            //        task->token->offset, task->token->length, task->token->rlen );
+            
+                printf("result: word:%s, pinyin:%s, type:%s\n", task->token->word ,task->token->py, word_type[task->token->type]);
+                j = 0;
+                while( task->token->py[j] != '\0'){
+                pinyin[idex++] = task->token->py[j++];
+                }  
+                pinyin[idex++] = ',';          
+            }
+            pinyin[--idex] = '\n';
+            pinyin[++idex] = '\0';        
+            printf("\n完整拼音：%s\n",pinyin);
+            data_send(client_sockfd, pinyin, idex); 
+            e_time = clock();
+            printf("\nDone, cost < %fsec\n", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
+            friso_free_task( task );
+        }
+        
+        return 0;   
+}
 
 int main(int argc, char **argv) 
 {
 
     clock_t s_time, e_time;
-    char line[__INPUT_LENGTH__] = {0};
-    int i;
-    fstring __path__ = NULL, mode = NULL;
+    fstring __path__ = NULL, mode = NULL;   
+    fd_set server_fd_set;
+    int max_fd = -1;
+    struct timeval tv;
+    pid_t ppid;
+    int client_sockfd;
+    int ret = 0;
+
 
     friso_t friso;
     friso_config_t config;
-    friso_task_t task;
+    
+    s_time = clock();
 
-    //get the lexicon directory
-    for ( i = 0; i < argc; i++ ) {
-        if ( strcasecmp( "-init", argv[i] ) == 0 ) {
-            __path__ = argv[i+1];
-        }
+    //initialize
+    signal(SIGCHLD, sig_handle);
+
+    if (0 != get_options(argc, argv, &g_sz_run_arg)){
+        printf("input parameters parse fail");
+        exit(-1);
     }
+
+    if (0 != init_listen_sock(g_sz_run_arg.port, &g_sz_run_arg.listen_fd)){
+        printf("init_sock fail");
+        exit(-1);
+    }
+
+    printf("listen port: %d listen_fd: %d", g_sz_run_arg.port, g_sz_run_arg.listen_fd);
+
+    __path__ = g_sz_run_arg.path;
+    printf("lexion path: %s", g_sz_run_arg.path);
     if ( __path__ == NULL ) {
         println("Usage: friso -init lexicon path");
         exit(0);
     }
 
-    s_time = clock();
-
-    //initialize
     friso = friso_new();
     config = friso_new_config();
-    /*friso_dic_t dic = friso_dic_new();
-      friso_dic_load_from_ifile( dic, __path__, __LENGTH__ );
-      friso_set_dic( friso, dic );
-      friso_set_mode( friso, __FRISO_COMPLEX_MODE__ );*/
+    
     if ( friso_init_from_ifile(friso, config, __path__) != 1 ) {
         printf("fail to initialize friso and config.\n");
         goto err;
@@ -125,60 +365,72 @@ int main(int argc, char **argv)
         break;
     }
 
-    //friso_set_mode( config, __FRISO_DETECT_MODE__ );
-    //printf("clr_stw=%d\n", friso->clr_stw);
-    //printf("match c++?%d\n", friso_dic_match( friso->dic, __LEX_ENPUN_WORDS__, "c++" ));
-    //printf("match(研究)?%d\n", friso_dic_match( friso->dic, __LEX_CJK_WORDS__, "研究"));
-
     e_time = clock();
 
     printf("Initialized in %fsec\n", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
     printf("Mode: %s\n", mode);
     printf("+-Version: %s (%s)\n", friso_version(), friso->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
     ___ABOUT___;
+    
+   while(run_flag){
+        tv.tv_sec = READ_TIMEOUT_SEC;
+        tv.tv_usec = READ_TIMEOUT_USEC;
 
-    //set the task.
-    task = friso_new_task();
-    char pinyin[4096] = {0};
-    //char word[4096] = {0};
-    unsigned int idex = 0, j = 0 ; 
+        FD_ZERO(&server_fd_set);
+        FD_SET(g_sz_run_arg.listen_fd, &server_fd_set);
+        
+        max_fd = g_sz_run_arg.listen_fd;
 
-    while ( 1 ) {
-        print("friso>> ");
-        getLine( stdin, line );
-        pinyin[0] = '\0';
-        //exit the programe
-        if ( strcasecmp( line, "quit" ) == 0 ) {
-            ___EXIT_INFO___
+        switch (select(max_fd+1, &server_fd_set, NULL, NULL, &tv))
+        {
+            case -1:{ //出错
+                if (EINTR != errno){ //EINTR/EAGAIN/EWOULDBLOCK 这几个不能当作错误处理
+                    printf("select error:%s(errno:%d)", strerror(errno), errno);
+                }
+                //run_flag = FALSE;
+                break;
+            }
+                
+            case 0: //超时
+                break;
+                
+            default: { //新连接
+                if (!FD_ISSET(g_sz_run_arg.listen_fd, &server_fd_set)) { 
+                    break;
+                }
+
+                if ((client_sockfd = accept(g_sz_run_arg.listen_fd, NULL, NULL)) == -1) {
+                    printf("accept send client socket error:%s(errno:%d)", strerror(errno), errno);
+                    break;
+                }
+
+                ppid = fork();
+
+                if (-1 == ppid){
+                    printf("fork error:%s(errno:%d)", strerror(errno), errno);
+                    //run_flag = FALSE;
+                    break;
+                }
+                else if (0 == ppid){ //子进程
+                    //关闭侦听socket
+                    SAFE_CLOSE_SOCKET(g_sz_run_arg.listen_fd);
+                    
+                    ret = work_child_process(client_sockfd, friso, config);
+                        
+                    SAFE_CLOSE_SOCKET(client_sockfd);
+
+                    exit(ret);
+                }
+                else{//父进程
+                    //关闭新建socket
+                    SAFE_CLOSE_SOCKET(client_sockfd);
+                }              
+            }
         }
+    }    
+    SAFE_CLOSE_SOCKET(g_sz_run_arg.listen_fd);
 
-        //for ( i = 0; i < 1000000; i++ ) {
-        //set the task text.
-        friso_set_text( task, line );
-        println("分词结果:");
-        idex = 0;
-
-        s_time = clock();
-        while ( ( config->next_token( friso, config, task ) ) != NULL ) {
-            //printf("word:%s[%d, %d, %d] ", task->token->word, 
-            //        task->token->offset, task->token->length, task->token->rlen );
-            
-            printf("result: word:%s, pinyin:%s, type:%s\n", task->token->word ,task->token->py, word_type[task->token->type]);
-            j = 0;
-            while( task->token->py[j] != '\0'){
-                pinyin[idex++] = task->token->py[j++];
-            }  
-            pinyin[idex++] = ',';          
-        }
-        pinyin[--idex] = '\0';       
-        printf("\n完整拼音：%s\n",pinyin);
- 
-        e_time = clock();
-        printf("\nDone, cost < %fsec\n", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
-
-    }
-
-    friso_free_task( task );
+    return 0;
 
     //error block.
 err:

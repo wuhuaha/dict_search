@@ -32,7 +32,7 @@ static: $(OBJECT)
 	ar -cr $(STA_FILE) $(OBJECT)
 
 share: $(OBJECT)
-	$(CC) $(FFLAGS) $(OBJECT) -fPIC -shared -l$(ELIB) -o $(LIB_FILE)
+	$(CC) $(FFLAGS) $(OBJECT) -fPIC -shared -l$(ELIB) -lpthread -o $(LIB_FILE)
 
 ##debug: $(SOURCE)
 ##    $(CC) $(CFLAGS) $(SOURCE) -o friso
