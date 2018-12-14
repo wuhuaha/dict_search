@@ -7,6 +7,7 @@
 
 #complie
 CC = gcc
+C++ = g++
 #include directory
 INCLUDE = .
 #complie flags for devolep

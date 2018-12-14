@@ -74,6 +74,20 @@ typedef struct run_arg_tag{
     char    path[256];      //配置文件路径
 }SZ_RUN_ARG_S;
 
+/*关键词词语及拼音*/
+typedef struct key_word_pinyin_tag{
+    char word[64];
+    char pinyin[512];
+}key_word_pinyin;
+
+key_word_pinyin  key_test[5] = {
+    {"价格","jia4,ge2"},
+    {"哪里","na3,li3"},
+    {"位置","wei4,zhi4"},
+    {"层高","ceng2,gao1"},
+    {"几室","ji3,shi4"}
+};
+
 #ifndef SAFE_CLOSE_SOCKET
 #define SAFE_CLOSE_SOCKET(fd){\
     if (fd > 0){\
@@ -257,6 +271,59 @@ static void sig_handle( int num )
         }
     }  
 } 
+//word:待匹配语句拼音  key:关键词拼音
+int compute_edit_distance(char*  word, char*  key)
+{
+    int similarity, mini_tmp, mini_distance, py_add, py_delete, py_change;
+    int len1 = strlen(word);
+    int len2 = strlen(key);
+    printf("len1=%d", len1);
+    printf("len2=%d\n", len2);
+    mini_distance = len2;
+    if (len1 == 0) {
+        printf("<error>len1=%d", len1);
+        return -1;
+    }
+    if (len2 == 0) {
+        printf("<error>len2=%d", len2);
+        return -1;
+    }
+    int i = 0;
+    int j = 0;
+    int matrix[len1 + 1][len2 + 1];
+    for ( ; i <= len1; ++i) {
+        matrix[i][0] = 0;
+    }
+    for ( ; j <= len2; ++j) {
+        matrix[0][j] = j;
+    }
+    // 动态规划
+    for ( i = 1; i <= len1; ++i) {
+        for ( j = 1; j <= len2; ++j) {
+            int cost = 0;
+            if (word[i - 1] != key[j - 1]) {
+                cost = 1;
+            }
+            //假设所有操作均是对key而言
+            py_add = matrix[i][j - 1] + 1;
+            py_delete = matrix[i -1][j] + 1;
+            py_change = matrix[i -1][j - 1] + cost;
+
+            //matrix[i][j] = std::min(std::min(py_add, py_delete), py_change);
+            mini_tmp = (py_delete < py_change) ? py_delete : py_change;
+            matrix[i][j] = (py_add < mini_tmp) ? py_add : mini_tmp;
+            //printf("py_add:%d,py_delete:%d,py_change:%d,mini:%d\n",py_add, py_delete, py_change, matrix[i][j]);
+        }
+    }
+    for(i = 0; i <= len1; ++i){
+        //printf("%d|",matrix[i][len2]);
+        if(matrix[i][len2] < mini_distance)
+            mini_distance = matrix[i][len2];
+    }
+    similarity = (len2 - mini_distance) * 100 / len2;
+    printf("similarity of %s(word) and %s(key) is :%d\n", word, key, similarity);
+    return similarity;    
+}
 /**  
 * @Description:业务处理函数
 * @arg: [IN] 
@@ -297,6 +364,30 @@ static int work_child_process( int client_sockfd, friso_t friso, friso_config_t 
             pinyin[++idex] = '\0';        
             printf("\n完整拼音：%s\n",pinyin);
             data_send(client_sockfd, pinyin, idex); 
+            int similarity = -1, sim_tmp, sim_idex;
+            char sim_buffer[128];
+            for(idex = 0; idex < 5; idex++){
+                if((sim_tmp = compute_edit_distance(pinyin, key_test[idex].pinyin)) > 90){
+                    snprintf(sim_buffer, 128, "匹配结果：%s, 匹配度：%d \n", key_test[idex].word, sim_tmp);
+                    printf("%s",sim_buffer);
+                    data_send(client_sockfd, sim_buffer, strlen(sim_buffer) + 1); 
+                }
+                if(sim_tmp > similarity){
+                    similarity = sim_tmp;
+                    sim_idex = idex;
+                }
+                if(idex == 4){
+                    if(similarity > 50){
+                        snprintf(sim_buffer, 128, "匹配最高结果：%s, 匹配度：%d \n", key_test[sim_idex].word, similarity);
+                        printf("%s",sim_buffer);
+                        data_send(client_sockfd, sim_buffer, strlen(sim_buffer) + 1); 
+                    }else{
+                        similarity = 0;
+                        printf("none result\n");
+                    }
+                }
+            }   
+                            
             e_time = clock();
             printf("\nDone, cost < %fsec\n", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
             friso_free_task( task );
