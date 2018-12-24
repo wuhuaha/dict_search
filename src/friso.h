@@ -97,6 +97,7 @@ typedef struct {
     uint_t offset;      //offset index.
     fstring word;
     fstring py;       //pinyin of the word.
+    fstring label;    //label of the word.
     friso_array_t syn;  //synoyums words.
     friso_array_t pos;  //part of speech.
     uint_t fre;         //single word frequency.
@@ -107,6 +108,8 @@ typedef lex_entry_cdt * lex_entry_t;
 /*the segmentation token entry.*/
 #define __HITS_WORD_LENGTH__ 64
 #define __HITS_PINYIN_LENGTH__ 128
+#define __HITS_LABEL_LENGTH__ 128
+#define __HITS_SYN_LENGTH__ 512
 
 typedef struct {
     uchar_t type;    //type of the word. (item of friso_lex_t)
@@ -116,6 +119,7 @@ typedef struct {
     int offset;     //start offset of the word.
     char word[__HITS_WORD_LENGTH__];
     char py[__HITS_PINYIN_LENGTH__];
+    char label[__HITS_LABEL_LENGTH__];
 } friso_token_entry;
 typedef friso_token_entry * friso_token_t;
 

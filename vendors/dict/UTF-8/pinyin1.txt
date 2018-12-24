@@ -6829,11 +6829,11 @@
 甲壳/null/null/jia3,qiao4
 贾祸/null/null/gu3,huo4
 贾人/null/null/gu3,ren2
-价格/null/null/jia4,ge2
-价码/null/null/jia4,ma3
-价目/null/null/jia4,mu4
-价钱/null/null/jia4,qian2
-价值/null/null/jia4,zhi2
+价格/null/null/jia4,ge2/价格
+价码/null/null/jia4,ma3/价格
+价目/null/null/jia4,mu4/价格
+价钱/null/null/jia4,qian2/价格
+价值/null/null/jia4,zhi2/价格
 驾车/null/null/jia4,che1
 架空/null/null/jia4,kong1
 假道/null/null/jia3,dao4

@@ -331,6 +331,8 @@ FRISO_API friso_token_t friso_new_token( void )
     token->rlen = 0;
     token->pos = '\0';
     token->offset = -1;
+    token->py[0] = 0;
+    token->label[0] = 0;
     memset(token->word, 0x00, __HITS_WORD_LENGTH__);
 
     return token;
@@ -1541,6 +1543,11 @@ FRISO_API friso_token_t next_mmseg_token(
                 pinyin_single_get(friso->dic, __LEX_CJK_WORDS__, task->token->word, task->token->py);                
             }else{
                 snprintf(task->token->py, __HITS_PINYIN_LENGTH__, "%s", lex->py);
+            }
+            
+            if(lex->label != NULL){
+                //printf("label:%s\n",lex->label);
+                snprintf(task->token->label, __HITS_LABEL_LENGTH__, "%s", lex->label);
             }
             //printf("        拼音:%s\n",task->token->py);
             

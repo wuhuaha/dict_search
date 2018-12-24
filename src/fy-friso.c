@@ -166,8 +166,8 @@ int compute_edit_distance(char*  word, char*  key)
     int similarity, mini_tmp, mini_distance, py_add, py_delete, py_change;
     int len1 = strlen(word);
     int len2 = strlen(key);
-    printf("len1=%d", len1);
-    printf("len2=%d\n", len2);
+    //printf("len1=%d", len1);
+    //printf("len2=%d\n", len2);
     mini_distance = len2;
     if (len1 == 0) {
         printf("<error>len1=%d", len1);
@@ -209,7 +209,7 @@ int compute_edit_distance(char*  word, char*  key)
             mini_distance = matrix[i][len2];
     }
     similarity = (len2 - mini_distance) * 100 / len2;
-    printf("similarity of %s(word) and %s(key) is :%d\n", word, key, similarity);
+    //printf("similarity of %s(word) and %s(key) is :%d\n", word, key, similarity);
     return similarity;    
 }
 /**  
@@ -246,6 +246,9 @@ static int work_child_process( int client_sockfd, friso_t friso, friso_config_t 
             //        task->token->offset, task->token->length, task->token->rlen );
             
                 printf("result: word:%s, pinyin:%s, type:%s\n", task->token->word ,task->token->py, word_type[task->token->type]);
+                if(*task->token->label != 0){
+                    printf("标签：%s\n", task->token->label);
+                }
                 snprintf(send_buffer, sizeof(send_buffer), "%s  ", task->token->word);
                 data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
                 j = 0;
