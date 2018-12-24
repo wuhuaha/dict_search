@@ -22,6 +22,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
+#include "socket_server.h"
+#include "key.h"
 
 #define __LENGTH__ 15
 #define __INPUT_LENGTH__ 20480
@@ -74,20 +76,6 @@ typedef struct run_arg_tag{
     char    path[256];      //配置文件路径
 }SZ_RUN_ARG_S;
 
-/*关键词词语及拼音*/
-typedef struct key_word_pinyin_tag{
-    char word[64];
-    char pinyin[512];
-}key_word_pinyin;
-
-key_word_pinyin  key_test[5] = {
-    {"价格","jia4,ge2"},
-    {"哪里","na3,li3"},
-    {"位置","wei4,zhi4"},
-    {"层高","ceng2,gao1"},
-    {"几室","ji3,shi4"}
-};
-
 #ifndef SAFE_CLOSE_SOCKET
 #define SAFE_CLOSE_SOCKET(fd){\
     if (fd > 0){\
@@ -132,7 +120,7 @@ static int get_options(int argc, char *argv[], SZ_RUN_ARG_S *pst_arg)
                 argc_num++;
                 break;
             } 
-            case 'L':{  /*云服务器地址*/ 
+            case 'L':{  /*配置文件路径*/ 
                 (void)snprintf(pst_arg->path, sizeof(pst_arg->path), "%s", optarg);
                 argc_num++;
                 break;  
@@ -145,108 +133,9 @@ static int get_options(int argc, char *argv[], SZ_RUN_ARG_S *pst_arg)
     }
 
     if((pst_arg->port == 0) || (pst_arg->path[0] == 0) ){
-        printf("arguments error!\n You must do like: friso -P 8080 -L /usr/friso.ini");
+        printf("arguments error!     You must do like:\nfriso -P 8080 -L /usr/friso.ini\n");
         return -1;
     }
-
-    return 0;
-}
-
-/*
-*侦听socket初始化
-*/
-static int init_listen_sock(unsigned short port, int *listen_socket)
-{
-    int opt = 1;
-    int fd = -1;
-    struct sockaddr_in servaddr;
-    
-    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        printf("create server socket error:%s (errno:%d)", strerror(errno), errno);
-        return -1;
-    }
-
-    memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servaddr.sin_port = htons(port);
-
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-    if (bind(fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == -1) {
-        printf("bind server socket error:%s(errno:%d)", strerror(errno), errno);
-        close(fd);
-        return -1;
-    }
-    
-    if (listen(fd, BACKLOG) == -1) {
-        printf("listen server socket error:%s(errno:%d)", strerror(errno), errno);
-        close(fd);
-        return -1;
-    }
-
-    *listen_socket = fd;
-    
-    return 0;
-}
-
-/*
-*数据接收接口
-*/
-static int data_recv(int socket, char *buff, int data_len)
-{
-    int nbytes = 0;
-    
-    if ((socket <= 0) || (NULL == buff) || (0 == data_len)){
-        return -1;
-    }
-
-    while (nbytes <= 0) {   
-        nbytes = recv(socket, buff, data_len, 0);
-        if (0 == nbytes) {
-            printf("receive socket shutdown");            
-            return -1;
-        }
-        else if (-1 == nbytes) {
-            if ((errno == EINTR) || (errno == EAGAIN) || (errno == EWOULDBLOCK)){
-                continue;
-            } 
-            printf("receive error:%s(errno:%d)", strerror(errno), errno);
-            return -1;
-        }        
-    }
-    
-    return nbytes;
-}
-
-/*
-*数据发送接口
-*/
-static int data_send(int socket, char *buff, unsigned int data_len)
-{   
-    int wrote = 0;
-    int len = data_len;
-    char *ptr = buff;
-
-    if ((socket <= 0) || (NULL == buff) || (0 == data_len)){
-        return -1;
-    }
-
-    while (len) {
-        wrote = send(socket, ptr, len, 0);
-        if (wrote == -1) {
-            if ((errno == EINTR) || (errno == EAGAIN) || (errno == EWOULDBLOCK)){
-                continue;
-            }
-            else {
-                printf("send to cliend error:%s(errno:%d)", strerror(errno), errno);
-                return -1;
-            }
-        }
-
-        ptr += wrote;
-        len -= wrote;
-  }
 
     return 0;
 }
@@ -288,8 +177,7 @@ int compute_edit_distance(char*  word, char*  key)
         printf("<error>len2=%d", len2);
         return -1;
     }
-    int i = 0;
-    int j = 0;
+    int i = 0, j = 0;
     int matrix[len1 + 1][len2 + 1];
     for ( ; i <= len1; ++i) {
         matrix[i][0] = 0;
@@ -335,13 +223,15 @@ static int work_child_process( int client_sockfd, friso_t friso, friso_config_t 
         friso_task_t task; 
         clock_t s_time, e_time;
         char pinyin[4096] = {0};
-        char word[4096] = {0};
+        char word[4096] = {0};        
+        char send_buffer[1024];
         unsigned int idex = 0,j = 0, data_len = 0; 
         
         while(1)
         {
             idex = 0;
             pinyin[0] = 0;
+            memset(word, 0, sizeof(word));
             data_len = data_recv(client_sockfd, word, sizeof(word));
             printf("word:%s,data_len:%d\n",word, data_len);
             //set the task.
@@ -349,11 +239,15 @@ static int work_child_process( int client_sockfd, friso_t friso, friso_config_t 
             friso_set_text( task, word );
             println("分词结果:");
             s_time = clock();
+            snprintf(send_buffer, sizeof(send_buffer), "包含词:");
+            data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
             while ( ( config->next_token( friso, config, task ) ) != NULL ) {
             //printf("word:%s[%d, %d, %d] ", task->token->word, 
             //        task->token->offset, task->token->length, task->token->rlen );
             
                 printf("result: word:%s, pinyin:%s, type:%s\n", task->token->word ,task->token->py, word_type[task->token->type]);
+                snprintf(send_buffer, sizeof(send_buffer), "%s  ", task->token->word);
+                data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
                 j = 0;
                 while( task->token->py[j] != '\0'){
                 pinyin[idex++] = task->token->py[j++];
@@ -362,26 +256,29 @@ static int work_child_process( int client_sockfd, friso_t friso, friso_config_t 
             }
             pinyin[--idex] = '\n';
             pinyin[++idex] = '\0';        
-            printf("\n完整拼音：%s\n",pinyin);
-            data_send(client_sockfd, pinyin, idex); 
+            snprintf(send_buffer, sizeof(send_buffer), "\n完整拼音：%s",pinyin);
+            data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
             int similarity = -1, sim_tmp, sim_idex;
-            char sim_buffer[128];
-            for(idex = 0; idex < 5; idex++){
-                if((sim_tmp = compute_edit_distance(pinyin, key_test[idex].pinyin)) > 90){
-                    snprintf(sim_buffer, 128, "匹配结果：%s, 匹配度：%d \n", key_test[idex].word, sim_tmp);
-                    printf("%s",sim_buffer);
-                    data_send(client_sockfd, sim_buffer, strlen(sim_buffer) + 1); 
+            for(idex = 0; idex < key_fangchan.key_num; idex++){
+                if((sim_tmp = compute_edit_distance(pinyin, key_fangchan.key_list[idex].pinyin)) >= key_fangchan.key_list[idex].threshold){
+                    snprintf(send_buffer, sizeof(send_buffer), "匹配结果:%s,标签:%s,匹配度:%d \n", key_fangchan.key_list[idex].word, key_fangchan.key_list[idex].label, sim_tmp);
+                    printf("%s",send_buffer);
+                    data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
                 }
                 if(sim_tmp > similarity){
                     similarity = sim_tmp;
                     sim_idex = idex;
+                    printf("目前匹配度最高为：%d\n",similarity);
                 }
-                if(idex == 4){
+                if(idex == key_fangchan.key_num - 1){
                     if(similarity > 50){
-                        snprintf(sim_buffer, 128, "匹配最高结果：%s, 匹配度：%d \n", key_test[sim_idex].word, similarity);
-                        printf("%s",sim_buffer);
-                        data_send(client_sockfd, sim_buffer, strlen(sim_buffer) + 1); 
+                        snprintf(send_buffer, sizeof(send_buffer) , "匹配最高结果:%s,标签:%s,匹配度:%d \n", key_fangchan.key_list[sim_idex].word,key_fangchan.key_list[sim_idex].label, similarity);
+                        printf("%s",send_buffer);
+                        data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
                     }else{
+                        snprintf(send_buffer, sizeof(send_buffer), "无匹配项\n");
+                        printf("%s",send_buffer);
+                        data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
                         similarity = 0;
                         printf("none result\n");
                     }
