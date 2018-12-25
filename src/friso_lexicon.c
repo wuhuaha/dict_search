@@ -233,7 +233,7 @@ FRISO_API void friso_dic_add_label(
 		if(old_entry != NULL){
 			if(old_entry->label == NULL){
 				old_entry->label = label;
-                printf("add label:%s to word:%s\n", old_entry->label, old_entry->word);
+                //printf("add label:%s to word:%s\n", old_entry->label, old_entry->word);
 			}
 		}else{
         	printf("None this entry,so,did't add label");
@@ -447,7 +447,7 @@ FRISO_API void friso_dic_load(
             }
             
 			//单个字转拼音，只取最常用的一个
-			if ( _pinyin != NULL ) {
+			if ( (_pinyin != NULL) && (strcmp(_pinyin, "null") != 0) ) {
 				if(get_utf8_bytes(_word[0]) == strlen(_word)){
                 	string_split_reset( &sse, ",", _pbuffer );
 					_pinyin = NULL;
@@ -465,12 +465,12 @@ FRISO_API void friso_dic_load(
             friso_dic_add_with_fre( 
                     friso->dic, lex, _word, sywords, _fre );
             //add pinyin    
-            if(_pinyin != NULL ){
+            if( (_pinyin != NULL) && (strcmp(_pinyin, "null") != 0) ) {
                 friso_dic_add_pinyin( 
                     friso->dic, lex, _word, _pinyin);
             }
              //add label    
-            if(_label != NULL ){
+           if( (_label != NULL) && (strcmp(_label, "null") != 0) ){
                 friso_dic_add_label( 
                     friso->dic, lex, _word, _label);
             }

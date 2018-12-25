@@ -1538,7 +1538,7 @@ FRISO_API friso_token_t next_mmseg_token(
             task->token->word[len] = '\0';
 
             /*if the pinyin of the word is null ,get the pinyin of single word*/
-            if((lex->py == NULL)) {
+            if((lex->py == NULL) || (strcmp(lex->py , "null") == 0)) {
                 task->token->py[0] = '\0';
                 pinyin_single_get(friso->dic, __LEX_CJK_WORDS__, task->token->word, task->token->py);                
             }else{

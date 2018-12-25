@@ -27,6 +27,9 @@
 
 #define __LENGTH__ 15
 #define __INPUT_LENGTH__ 20480
+#define __DOMAIN_NUM__  2
+#define __DOMAIN_PUBLIC__ 0
+#define __DOMAIN_HOUSE__ 1
 #define ___EXIT_INFO___                    \
     println("Thanks for trying friso.");        \
 break;
@@ -217,20 +220,29 @@ int compute_edit_distance(char*  word, char*  key)
 * @arg: [IN] 
 * @return 成功: 0 失败: -1
 */
-static int work_child_process( int client_sockfd, friso_t friso, friso_config_t config)
+static int work_child_process( int client_sockfd, friso_t *friso_list, friso_config_t *config_list)
 {
     
         friso_task_t task; 
         clock_t s_time, e_time;
         char pinyin[4096] = {0};
+        char label[4096] = {0};
         char word[4096] = {0};        
         char send_buffer[1024];
         unsigned int idex = 0,j = 0, data_len = 0; 
-        
+
+        memset(word, 0, sizeof(word));
+        data_len = data_recv(client_sockfd, word, sizeof(word));
+        idex = atoi(word) < __DOMAIN_NUM__  ? atoi(word) : __DOMAIN_PUBLIC__;
+        printf("domain:%d\n",idex);
+        friso_t friso  = friso_list[idex]; 
+        friso_config_t config = config_list[idex];
+
         while(1)
         {
             idex = 0;
             pinyin[0] = 0;
+            *label = 0;
             memset(word, 0, sizeof(word));
             data_len = data_recv(client_sockfd, word, sizeof(word));
             printf("word:%s,data_len:%d\n",word, data_len);
@@ -244,49 +256,54 @@ static int work_child_process( int client_sockfd, friso_t friso, friso_config_t 
             while ( ( config->next_token( friso, config, task ) ) != NULL ) {
             //printf("word:%s[%d, %d, %d] ", task->token->word, 
             //        task->token->offset, task->token->length, task->token->rlen );
-            
                 printf("result: word:%s, pinyin:%s, type:%s\n", task->token->word ,task->token->py, word_type[task->token->type]);
                 if(*task->token->label != 0){
                     printf("标签：%s\n", task->token->label);
+                    if(*label != 0)
+                        strcat(label, "|");
+                    strcat(label, task->token->label);    
                 }
                 snprintf(send_buffer, sizeof(send_buffer), "%s  ", task->token->word);
                 data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
                 j = 0;
+                *task->token->label = 0;
                 while( task->token->py[j] != '\0'){
                 pinyin[idex++] = task->token->py[j++];
                 }  
-                pinyin[idex++] = ',';          
+                pinyin[idex++] = ',';      
             }
-            pinyin[--idex] = '\n';
-            pinyin[++idex] = '\0';        
-            snprintf(send_buffer, sizeof(send_buffer), "\n完整拼音：%s",pinyin);
+            pinyin[--idex] = '\0';   
+            snprintf(send_buffer, sizeof(send_buffer), "\n完整拼音：%s 直接匹配标签：%s\n",pinyin, label);
             data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
-            int similarity = -1, sim_tmp, sim_idex;
-            for(idex = 0; idex < key_fangchan.key_num; idex++){
-                if((sim_tmp = compute_edit_distance(pinyin, key_fangchan.key_list[idex].pinyin)) >= key_fangchan.key_list[idex].threshold){
-                    snprintf(send_buffer, sizeof(send_buffer), "匹配结果:%s,标签:%s,匹配度:%d \n", key_fangchan.key_list[idex].word, key_fangchan.key_list[idex].label, sim_tmp);
-                    printf("%s",send_buffer);
-                    data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
-                }
-                if(sim_tmp > similarity){
-                    similarity = sim_tmp;
-                    sim_idex = idex;
-                    printf("目前匹配度最高为：%d\n",similarity);
-                }
-                if(idex == key_fangchan.key_num - 1){
-                    if(similarity > 50){
-                        snprintf(send_buffer, sizeof(send_buffer) , "匹配最高结果:%s,标签:%s,匹配度:%d \n", key_fangchan.key_list[sim_idex].word,key_fangchan.key_list[sim_idex].label, similarity);
+            if(*label == 0)
+            {
+                int similarity = -1, sim_tmp, sim_idex;
+                for(idex = 0; idex < key_fangchan.key_num; idex++){
+                    if((sim_tmp = compute_edit_distance(pinyin, key_fangchan.key_list[idex].pinyin)) >= key_fangchan.key_list[idex].threshold){
+                        snprintf(send_buffer, sizeof(send_buffer), "匹配结果:%s,标签:%s,匹配度:%d \n", key_fangchan.key_list[idex].word, key_fangchan.key_list[idex].label, sim_tmp);
                         printf("%s",send_buffer);
                         data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
-                    }else{
-                        snprintf(send_buffer, sizeof(send_buffer), "无匹配项\n");
-                        printf("%s",send_buffer);
-                        data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
-                        similarity = 0;
-                        printf("none result\n");
+                    }
+                    if(sim_tmp > similarity){
+                        similarity = sim_tmp;
+                        sim_idex = idex;
+                        printf("目前匹配度最高为：%d\n",similarity);
+                    }
+                    if(idex == key_fangchan.key_num - 1){
+                        if(similarity > 50){
+                            snprintf(send_buffer, sizeof(send_buffer) , "匹配最高结果:%s,标签:%s,匹配度:%d \n", key_fangchan.key_list[sim_idex].word,key_fangchan.key_list[sim_idex].label, similarity);
+                            printf("%s",send_buffer);
+                            data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
+                        }else{
+                            snprintf(send_buffer, sizeof(send_buffer), "无匹配项\n");
+                            printf("%s",send_buffer);
+                            data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
+                            similarity = 0;
+                            printf("none result\n");
+                        }
                     }
                 }
-            }   
+            }  
                             
             e_time = clock();
             printf("\nDone, cost < %fsec\n", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
@@ -300,7 +317,8 @@ int main(int argc, char **argv)
 {
 
     clock_t s_time, e_time;
-    fstring __path__ = NULL, mode = NULL;   
+    fstring  mode = NULL;   
+    char path[512] = {0};
     fd_set server_fd_set;
     int max_fd = -1;
     struct timeval tv;
@@ -308,9 +326,8 @@ int main(int argc, char **argv)
     int client_sockfd;
     int ret = 0;
 
-
-    friso_t friso;
-    friso_config_t config;
+    friso_t friso_list[__DOMAIN_NUM__];
+    friso_config_t config_list[__DOMAIN_NUM__];
     
     s_time = clock();
 
@@ -329,40 +346,51 @@ int main(int argc, char **argv)
 
     printf("listen port: %d listen_fd: %d", g_sz_run_arg.port, g_sz_run_arg.listen_fd);
 
-    __path__ = g_sz_run_arg.path;
-    printf("lexion path: %s", g_sz_run_arg.path);
-    if ( __path__ == NULL ) {
-        println("Usage: friso -init lexicon path");
-        exit(0);
+    register int i = 0;
+    for(i = 0 ;i < __DOMAIN_NUM__; i++)
+    {
+        friso_list[i] = friso_new();
+        config_list[i] = friso_new_config();
+        switch(i){
+            case __DOMAIN_PUBLIC__ :
+                snprintf(path, sizeof(path), "%s/public.ini", g_sz_run_arg.path);
+                break;
+            case __DOMAIN_HOUSE__ :
+                snprintf(path, sizeof(path), "%s/house.ini", g_sz_run_arg.path);
+                break;
+            default:
+                printf("error domain :%d\n", i);
+                break;
+        }    
+
+        if ( path == NULL ) {
+            println("Usage: friso -init lexicon path");
+            exit(0);
+        }
+
+        if ( friso_init_from_ifile(friso_list[i], config_list[i], path) != 1 ) {
+            printf("fail to initialize friso and config.\n");
+            goto err;
+        }
+
+        switch ( config_list[i]->mode ) {
+        case __FRISO_SIMPLE_MODE__:
+            mode = "Simple";
+            break;
+        case __FRISO_COMPLEX_MODE__:
+            mode = "Complex";
+            break;
+        case __FRISO_DETECT_MODE__:
+            mode = "Detect";
+            break;
+        }
+
+        e_time = clock();
+
+        printf("Initialized in %fsec\n", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
+        printf("Mode: %s\n", mode);
+        printf("+-Version: %s (%s)\n", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
     }
-
-    friso = friso_new();
-    config = friso_new_config();
-    
-    if ( friso_init_from_ifile(friso, config, __path__) != 1 ) {
-        printf("fail to initialize friso and config.\n");
-        goto err;
-    }
-
-    switch ( config->mode ) {
-    case __FRISO_SIMPLE_MODE__:
-        mode = "Simple";
-        break;
-    case __FRISO_COMPLEX_MODE__:
-        mode = "Complex";
-        break;
-    case __FRISO_DETECT_MODE__:
-        mode = "Detect";
-        break;
-    }
-
-    e_time = clock();
-
-    printf("Initialized in %fsec\n", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
-    printf("Mode: %s\n", mode);
-    printf("+-Version: %s (%s)\n", friso_version(), friso->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
-    ___ABOUT___;
-    
    while(run_flag){
         tv.tv_sec = READ_TIMEOUT_SEC;
         tv.tv_usec = READ_TIMEOUT_USEC;
@@ -406,7 +434,7 @@ int main(int argc, char **argv)
                     //关闭侦听socket
                     SAFE_CLOSE_SOCKET(g_sz_run_arg.listen_fd);
                     
-                    ret = work_child_process(client_sockfd, friso, config);
+                    ret = work_child_process(client_sockfd, friso_list, config_list);
                         
                     SAFE_CLOSE_SOCKET(client_sockfd);
 
@@ -425,9 +453,10 @@ int main(int argc, char **argv)
 
     //error block.
 err:
-    friso_free_config(config);
-    friso_free(friso);
-    
-
+    for(i = 0 ;i < __DOMAIN_NUM__; i++)
+    {
+        friso_free_config(config_list[i]);
+        friso_free(friso_list[i]);
+    }
     return 0;
 }
