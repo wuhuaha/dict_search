@@ -87,13 +87,8 @@ typedef struct {
     fstring word;//词内容
     fstring pinyin;//词拼音
     fstring label; //标签
+    friso_array_t word_list;
 } key_entry;
-
-typedef struct  {
-    key_entry **items;
-    int allocs;
-    int length;
-} key_items;
 
 #ifndef SAFE_CLOSE_SOCKET
 #define SAFE_CLOSE_SOCKET(fd){\
@@ -126,15 +121,7 @@ int free_key_entry( key_entry *entry )
     return 0;
 }
 
-int init_key_items(key_items* items)
-{
-    items->length = 0;
-    items->allocs = 512;
-    items->items = malloc((items->allocs) * sizeof(key_entry*));
-    return 0;
-}
-
-int free_key_items(key_items* items)
+int free_key_items(friso_array_entry* items)
 {
     register int i = 0;
     for(i = 0; i < items->length; i++)
@@ -145,49 +132,50 @@ int free_key_items(key_items* items)
     return 0;
 }
 
-int print_key_items(key_items* items)
+int print_key_items(friso_array_entry* items)
 {
-    register int i = 0;
+    register int i = 0, j = 0;
     register key_entry* entry;
     for(i = 0; i < items->length; i++)
     {
         entry = *(items->items + i);
-        printf("key[%d]\tword:%s\tlabel:%s\n", i, entry->word, entry->label);
+        printf("key[%d]\tword:%s\tlabel:%s\t", i, entry->word, entry->label);
+        for(j = 0; j < entry->word_list->length; j++)
+            printf("——word_list[%d]:%s——", j, (char *)(*(entry->word_list->items + j)));
+        printf("\n");
     }   
     return 0;
 }
 
-int add_key_entry(key_items* items, key_entry* entry)
-{
-    if(entry == NULL) 
-        return -1;
-    if(++(items->length) >= items->allocs)
-    {
-        items->allocs *= 2;
-        items->items = realloc(items->items, (items->allocs) * sizeof(key_entry*));
-    }
-    *(items->items + items->length - 1) = entry;
-    return 0;
-}
-/*
-int rex_string(fstring string, key_items* items)
-{
-    char word[16][64] = {0};
-    int  word_num = 0;
-    register int i = 0, idex = 0;
-    while(i < strlen(string))
-    {
-        if(string[i] == ' ' || string[i] == ' '){
-            string[i] = 0;
-            printf("string[%d]:%s\t", word_num, word[word_num]);
-        }else{
 
-        }
-        i++;
-    }
+int rex_string(fstring string,friso_array_entry* items)
+{
+    register int i = 0, j = 0;
+    register key_entry* entry;
+    register char *tmp = NULL, *tmp_last = NULL;
+    for(i = 0; i < items->length; i++)
+    {
+        entry = *(items->items + i);
+        for(j = 0; j < entry->word_list->length; j++){
+            printf("——word_list[%d]:%s——", j, (char *)(*(entry->word_list->items + j)));    
+            tmp = (char *)(*(entry->word_list->items + j));        
+            if(strstr(string, tmp) == NULL)
+                break;
+            /*
+            if((tmp_last != NULL) && (tmp < tmp_last))
+                break;
+            */
+            if(j == (entry->word_list->length - 1)){
+                return (i + 1);
+            }
+            printf("flag");                
+            tmp_last = tmp;
+        }            
+        printf("flag:%d\n",i);
+    } 
     return 0;
 }
-*/
+
 /**  
 * @Description:解析进程入参
 * @argc[IN]- 参数个数
@@ -317,7 +305,7 @@ int compute_edit_distance(char*  word, char*  key)
 * @arg: [IN] 
 * @return 成功: 0 失败: -1
 */
-static int work_child_process( int client_sockfd, friso_t *friso_list, friso_config_t *config_list)
+static int work_child_process( int client_sockfd, friso_t *friso_list, friso_config_t *config_list, friso_array_t key_arry)
 {
     
         friso_task_t task; 
@@ -369,9 +357,24 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
                 }  
                 pinyin[idex++] = ',';      
             }
+            printf("\n");
+            data_send(client_sockfd, "\n", 2);
             pinyin[--idex] = '\0';   
-            snprintf(send_buffer, sizeof(send_buffer), "\n完整拼音：%s 直接匹配标签：%s\n",pinyin, label);
-            data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
+            if(*label != 0){
+                snprintf(send_buffer, sizeof(send_buffer), "直接匹配标签：[%s]\n", label);
+                data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
+            }
+            if(*label == 0)
+            {
+                if((idex = rex_string(word, key_arry)) > 0){
+                    key_entry* entry = *(key_arry->items + idex - 1);
+                    snprintf(label, sizeof(label), "%s", entry->label);
+                    snprintf(send_buffer, sizeof(send_buffer),"正则匹配项：[%s], 正则匹配标签：[%s]\n", entry->word, entry->label);
+                    data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
+                }else{
+                    *label = 0;
+                }
+            }
             if(*label == 0)
             {
                 int similarity = -1, sim_tmp, sim_idex;
@@ -379,7 +382,7 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
                     if((sim_tmp = compute_edit_distance(pinyin, key_fangchan.key_list[idex].pinyin)) >= key_fangchan.key_list[idex].threshold){
                         snprintf(send_buffer, sizeof(send_buffer), "匹配结果:%s,标签:%s,匹配度:%d \n", key_fangchan.key_list[idex].word, key_fangchan.key_list[idex].label, sim_tmp);
                         printf("%s",send_buffer);
-                        data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
+                        //data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
                     }
                     if(sim_tmp > similarity){
                         similarity = sim_tmp;
@@ -388,7 +391,7 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
                     }
                     if(idex == key_fangchan.key_num - 1){
                         if(similarity > 50){
-                            snprintf(send_buffer, sizeof(send_buffer) , "匹配最高结果:%s,标签:%s,匹配度:%d \n", key_fangchan.key_list[sim_idex].word,key_fangchan.key_list[sim_idex].label, similarity);
+                            snprintf(send_buffer, sizeof(send_buffer) , "完整拼音：%s, 拼音匹配最高结果:[%s],标签:[%s],匹配度:%d \n",pinyin, key_fangchan.key_list[sim_idex].word,key_fangchan.key_list[sim_idex].label, similarity);
                             printf("%s",send_buffer);
                             data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
                         }else{
@@ -410,7 +413,7 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
         return 0;   
 }
 
-int add_dict_to_arry(char *file_path,  key_items *items)
+int add_dict_to_arry(char *file_path,friso_array_entry *items)
 {
     FILE *fd;
     char line_buffer[512], buffer[256];
@@ -425,7 +428,7 @@ int add_dict_to_arry(char *file_path,  key_items *items)
                 continue;
         }
         key_entry* entry_test = (key_entry*)malloc(sizeof(key_entry));
-        add_key_entry(items, entry_test);
+        array_list_add(items, entry_test);
 
         entry_test->word = string_copy_heap(buffer, strlen(buffer));
         //printf("word:%s\n",entry_test->word);
@@ -450,6 +453,15 @@ int add_dict_to_arry(char *file_path,  key_items *items)
             entry_test->label = string_copy_heap(buffer, strlen(buffer));
             //printf("label:%s\n",entry_test->label);
         }
+        entry_test->word_list = new_array_list_with_opacity(2);
+        string_split_reset( &sse, "*", entry_test->word);
+        while(string_split_next( &sse, buffer ) != NULL)
+        {
+            fstring word = string_copy_heap(buffer, strlen(buffer));
+            array_list_add(entry_test->word_list, word);
+            //printf("%s",buffer);
+        } 
+        //printf("\n");
         //free_key_entry(entry_test);
     }
     return 0;
@@ -467,8 +479,7 @@ int main(int argc, char **argv)
     pid_t ppid;
     int client_sockfd;
     int ret = 0;
-    key_items key_arry;
-    init_key_items(&key_arry);
+    friso_array_t key_arry = new_array_list_with_opacity(512);
 
     friso_t friso_list[__DOMAIN_NUM__];
     friso_config_t config_list[__DOMAIN_NUM__];
@@ -526,10 +537,9 @@ int main(int argc, char **argv)
         printf("+-Version: %s (%s)\n", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
     }
 
-    add_dict_to_arry("/root/dict/house/house_rex.txt", &key_arry);
-    printf("there %d arry in key_arry\n",key_arry.length);
-    print_key_items(&key_arry);
-    free_key_items(&key_arry);
+    add_dict_to_arry("/root/dict/house/house_rex.txt", key_arry);
+    printf("there %d arry in key_arry\n", key_arry->length);
+    //print_key_items(key_arry);
 
    while(run_flag){
         tv.tv_sec = READ_TIMEOUT_SEC;
@@ -574,7 +584,7 @@ int main(int argc, char **argv)
                     //关闭侦听socket
                     SAFE_CLOSE_SOCKET(g_sz_run_arg.listen_fd);
                     
-                    ret = work_child_process(client_sockfd, friso_list, config_list);
+                    ret = work_child_process(client_sockfd, friso_list, config_list, key_arry);
                         
                     SAFE_CLOSE_SOCKET(client_sockfd);
 
@@ -596,7 +606,10 @@ err:
     for(i = 0 ;i < __DOMAIN_NUM__; i++)
     {
         friso_free_config(config_list[i]);
-        friso_free(friso_list[i]);
-    }
+        friso_free(friso_list[i]);  
+    }      
+
+    free_key_items(key_arry);
+
     return 0;
 }
