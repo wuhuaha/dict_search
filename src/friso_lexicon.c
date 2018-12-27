@@ -291,7 +291,7 @@ __STATIC_API__ fstring string_copy(
  * @param _src      source fstring
  * @param blocks    number of bytes to copy
  */
-__STATIC_API__ fstring string_copy_heap( 
+FRISO_API fstring string_copy_heap( 
         fstring _src, uint_t blocks ) 
 {
     register uint_t t;

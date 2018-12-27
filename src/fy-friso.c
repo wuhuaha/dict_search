@@ -27,9 +27,6 @@
 
 #define __LENGTH__ 15
 #define __INPUT_LENGTH__ 20480
-#define __DOMAIN_NUM__  2
-#define __DOMAIN_PUBLIC__ 0
-#define __DOMAIN_HOUSE__ 1
 #define ___EXIT_INFO___                    \
     println("Thanks for trying friso.");        \
 break;
@@ -72,12 +69,31 @@ char word_type[16][32] = {
     "UNKNOW_WORDS"
 };
 
+#define __DOMAIN_NUM__  2
+#define __DOMAIN_PUBLIC__ 0
+char domain_name[__DOMAIN_NUM__][32] = {
+    "public",
+    "house"
+};
+
 /*service 配置*/
 typedef struct run_arg_tag{
     int     listen_fd;      //侦听socket
     int     port;           //端口
     char    path[256];      //配置文件路径
 }SZ_RUN_ARG_S;
+
+typedef struct {
+    fstring word;//词内容
+    fstring pinyin;//词拼音
+    fstring label; //标签
+} key_entry;
+
+typedef struct  {
+    key_entry **items;
+    int allocs;
+    int length;
+} key_items;
 
 #ifndef SAFE_CLOSE_SOCKET
 #define SAFE_CLOSE_SOCKET(fd){\
@@ -88,9 +104,90 @@ typedef struct run_arg_tag{
 }
 #endif
 
+#ifndef SAFE_FREE
+#define SAFE_FREE(ptr) \
+{ \
+    if (NULL != ptr) { \
+        free(ptr); \
+        ptr = NULL; \
+    } \
+}
+#endif
+
 static int run_flag = TRUE;     //运行控制变量
 SZ_RUN_ARG_S g_sz_run_arg = {0};  //运行参数，通过参数传入
 
+int free_key_entry( key_entry *entry )
+{
+    SAFE_FREE(entry->word)
+    SAFE_FREE(entry->pinyin)
+    SAFE_FREE(entry->label)
+    SAFE_FREE(entry)
+    return 0;
+}
+
+int init_key_items(key_items* items)
+{
+    items->length = 0;
+    items->allocs = 512;
+    items->items = malloc((items->allocs) * sizeof(key_entry*));
+    return 0;
+}
+
+int free_key_items(key_items* items)
+{
+    register int i = 0;
+    for(i = 0; i < items->length; i++)
+    {
+        free_key_entry(*(items->items + i));
+    }    
+    SAFE_FREE(items->items)
+    return 0;
+}
+
+int print_key_items(key_items* items)
+{
+    register int i = 0;
+    register key_entry* entry;
+    for(i = 0; i < items->length; i++)
+    {
+        entry = *(items->items + i);
+        printf("key[%d]\tword:%s\tlabel:%s\n", i, entry->word, entry->label);
+    }   
+    return 0;
+}
+
+int add_key_entry(key_items* items, key_entry* entry)
+{
+    if(entry == NULL) 
+        return -1;
+    if(++(items->length) >= items->allocs)
+    {
+        items->allocs *= 2;
+        items->items = realloc(items->items, (items->allocs) * sizeof(key_entry*));
+    }
+    *(items->items + items->length - 1) = entry;
+    return 0;
+}
+/*
+int rex_string(fstring string, key_items* items)
+{
+    char word[16][64] = {0};
+    int  word_num = 0;
+    register int i = 0, idex = 0;
+    while(i < strlen(string))
+    {
+        if(string[i] == ' ' || string[i] == ' '){
+            string[i] = 0;
+            printf("string[%d]:%s\t", word_num, word[word_num]);
+        }else{
+
+        }
+        i++;
+    }
+    return 0;
+}
+*/
 /**  
 * @Description:解析进程入参
 * @argc[IN]- 参数个数
@@ -313,6 +410,51 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
         return 0;   
 }
 
+int add_dict_to_arry(char *file_path,  key_items *items)
+{
+    FILE *fd;
+    char line_buffer[512], buffer[256];
+    fstring line;
+    string_split_entry sse;
+    fd = fopen(file_path, "r+");
+    while((line = file_get_line(line_buffer, fd)) != NULL)
+    {
+        //printf("get %s from file \n",line);
+        string_split_reset( &sse, "/", line);
+        if ( string_split_next( &sse, buffer ) == NULL ) {
+                continue;
+        }
+        key_entry* entry_test = (key_entry*)malloc(sizeof(key_entry));
+        add_key_entry(items, entry_test);
+
+        entry_test->word = string_copy_heap(buffer, strlen(buffer));
+        //printf("word:%s\n",entry_test->word);
+
+        string_split_next( &sse, buffer );
+        if ( strcmp(buffer, "null") != 0 ) {
+            //printf("syn:%s\n",buffer);
+        }
+        string_split_next( &sse, buffer );
+        if ( strcmp(buffer, "null") != 0 ) {
+            //printf("fre:%s\n",buffer);
+        }
+        string_split_next( &sse, buffer );
+        if ( strcmp(buffer, "null") != 0 ) {
+            entry_test->pinyin = string_copy_heap(buffer, strlen(buffer));
+            //printf("pinyin:%s\n",entry_test->pinyin);
+        }else{
+            entry_test->pinyin = NULL;
+        }
+        string_split_next( &sse, buffer );
+        if ( strcmp(buffer, "null") != 0 ) {
+            entry_test->label = string_copy_heap(buffer, strlen(buffer));
+            //printf("label:%s\n",entry_test->label);
+        }
+        //free_key_entry(entry_test);
+    }
+    return 0;
+}
+
 int main(int argc, char **argv) 
 {
 
@@ -325,6 +467,8 @@ int main(int argc, char **argv)
     pid_t ppid;
     int client_sockfd;
     int ret = 0;
+    key_items key_arry;
+    init_key_items(&key_arry);
 
     friso_t friso_list[__DOMAIN_NUM__];
     friso_config_t config_list[__DOMAIN_NUM__];
@@ -351,17 +495,7 @@ int main(int argc, char **argv)
     {
         friso_list[i] = friso_new();
         config_list[i] = friso_new_config();
-        switch(i){
-            case __DOMAIN_PUBLIC__ :
-                snprintf(path, sizeof(path), "%s/public.ini", g_sz_run_arg.path);
-                break;
-            case __DOMAIN_HOUSE__ :
-                snprintf(path, sizeof(path), "%s/house.ini", g_sz_run_arg.path);
-                break;
-            default:
-                printf("error domain :%d\n", i);
-                break;
-        }    
+        snprintf(path, sizeof(path), "%s/%s.ini", g_sz_run_arg.path, domain_name[i]);
 
         if ( path == NULL ) {
             println("Usage: friso -init lexicon path");
@@ -391,6 +525,12 @@ int main(int argc, char **argv)
         printf("Mode: %s\n", mode);
         printf("+-Version: %s (%s)\n", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
     }
+
+    add_dict_to_arry("/root/dict/house/house_rex.txt", &key_arry);
+    printf("there %d arry in key_arry\n",key_arry.length);
+    print_key_items(&key_arry);
+    free_key_items(&key_arry);
+
    while(run_flag){
         tv.tv_sec = READ_TIMEOUT_SEC;
         tv.tv_usec = READ_TIMEOUT_USEC;

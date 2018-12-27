@@ -295,7 +295,16 @@ FRISO_API void link_list_add_last( friso_link_t, void * );
 FRISO_API void link_list_add_first( friso_link_t, void * );
 /* }}} link list interface define::end*/
 
-
+/**
+ * make a heap allocation, and copy the 
+ *     source fstring to the new allocation, and 
+ *     you should free it after use it . 
+ *
+ * @param _src      source fstring
+ * @param blocks    number of bytes to copy
+ */
+FRISO_API fstring string_copy_heap( 
+        fstring _src, uint_t blocks );
 
 
 /* {{{ hashtable interface define :: start*/
