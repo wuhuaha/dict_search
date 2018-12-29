@@ -24,6 +24,7 @@
 #include <signal.h>
 #include "socket_server.h"
 #include "key.h"
+#include "pinyin.h"
 
 #define __LENGTH__ 15
 #define __INPUT_LENGTH__ 20480
@@ -68,7 +69,11 @@ char word_type[16][32] = {
     "PUNC_WORDS",
     "UNKNOW_WORDS"
 };
-
+/*
+extern pinyin_convert_arry pinyin_convert[1459];
+extern pinyin_convert_code yunmu_code[37];
+extern pinyin_convert_code shengmu_code[24]; 
+*/
 #define __DOMAIN_NUM__  2
 #define __DOMAIN_PUBLIC__ 0
 char domain_name[__DOMAIN_NUM__][32] = {
@@ -147,12 +152,11 @@ int print_key_items(friso_array_entry* items)
     return 0;
 }
 
-
 int rex_string(fstring string,friso_array_entry* items)
 {
     register int i = 0, j = 0;
     register key_entry* entry;
-    register char *tmp = NULL, *tmp_last = NULL;
+    register char *tmp = NULL;
     for(i = 0; i < items->length; i++)
     {
         entry = *(items->items + i);
@@ -169,7 +173,7 @@ int rex_string(fstring string,friso_array_entry* items)
                 return (i + 1);
             }
             printf("flag");                
-            tmp_last = tmp;
+            //tmp_last = tmp;
         }            
         printf("flag:%d\n",i);
     } 
@@ -248,58 +252,6 @@ static void sig_handle( int num )
         }
     }  
 } 
-//word:待匹配语句拼音  key:关键词拼音
-int compute_edit_distance(char*  word, char*  key)
-{
-    int similarity, mini_tmp, mini_distance, py_add, py_delete, py_change;
-    int len1 = strlen(word);
-    int len2 = strlen(key);
-    //printf("len1=%d", len1);
-    //printf("len2=%d\n", len2);
-    mini_distance = len2;
-    if (len1 == 0) {
-        printf("<error>len1=%d", len1);
-        return -1;
-    }
-    if (len2 == 0) {
-        printf("<error>len2=%d", len2);
-        return -1;
-    }
-    int i = 0, j = 0;
-    int matrix[len1 + 1][len2 + 1];
-    for ( ; i <= len1; ++i) {
-        matrix[i][0] = 0;
-    }
-    for ( ; j <= len2; ++j) {
-        matrix[0][j] = j;
-    }
-    // 动态规划
-    for ( i = 1; i <= len1; ++i) {
-        for ( j = 1; j <= len2; ++j) {
-            int cost = 0;
-            if (word[i - 1] != key[j - 1]) {
-                cost = 1;
-            }
-            //假设所有操作均是对key而言
-            py_add = matrix[i][j - 1] + 1;
-            py_delete = matrix[i -1][j] + 1;
-            py_change = matrix[i -1][j - 1] + cost;
-
-            //matrix[i][j] = std::min(std::min(py_add, py_delete), py_change);
-            mini_tmp = (py_delete < py_change) ? py_delete : py_change;
-            matrix[i][j] = (py_add < mini_tmp) ? py_add : mini_tmp;
-            //printf("py_add:%d,py_delete:%d,py_change:%d,mini:%d\n",py_add, py_delete, py_change, matrix[i][j]);
-        }
-    }
-    for(i = 0; i <= len1; ++i){
-        //printf("%d|",matrix[i][len2]);
-        if(matrix[i][len2] < mini_distance)
-            mini_distance = matrix[i][len2];
-    }
-    similarity = (len2 - mini_distance) * 100 / len2;
-    //printf("similarity of %s(word) and %s(key) is :%d\n", word, key, similarity);
-    return similarity;    
-}
 /**  
 * @Description:业务处理函数
 * @arg: [IN] 
@@ -377,21 +329,22 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
             }
             if(*label == 0)
             {
-                int similarity = -1, sim_tmp, sim_idex;
+                int similarity = -1, sim_tmp, sim_idex = 0;
                 for(idex = 0; idex < key_fangchan.key_num; idex++){
-                    if((sim_tmp = compute_edit_distance(pinyin, key_fangchan.key_list[idex].pinyin)) >= key_fangchan.key_list[idex].threshold){
-                        snprintf(send_buffer, sizeof(send_buffer), "匹配结果:%s,标签:%s,匹配度:%d \n", key_fangchan.key_list[idex].word, key_fangchan.key_list[idex].label, sim_tmp);
+                    if((sim_tmp = compute_code_edit_distance(pinyin, key_fangchan.key_list[idex].pinyin)) == 100){
+                        snprintf(send_buffer, sizeof(send_buffer), "拼音完全匹配，匹配结果:%s,标签:%s\n", key_fangchan.key_list[idex].word, key_fangchan.key_list[idex].label);
                         printf("%s",send_buffer);
-                        //data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
+                        data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
+                        //break;
                     }
                     if(sim_tmp > similarity){
                         similarity = sim_tmp;
                         sim_idex = idex;
                         printf("目前匹配度最高为：%d\n",similarity);
                     }
-                    if(idex == key_fangchan.key_num - 1){
+                    if((idex == key_fangchan.key_num - 1) && (similarity < 100)){
                         if(similarity > 50){
-                            snprintf(send_buffer, sizeof(send_buffer) , "完整拼音：%s, 拼音匹配最高结果:[%s],标签:[%s],匹配度:%d \n",pinyin, key_fangchan.key_list[sim_idex].word,key_fangchan.key_list[sim_idex].label, similarity);
+                            snprintf(send_buffer, sizeof(send_buffer) , "拼音非完整匹配, 拼音匹配最高结果:[%s],标签:[%s],匹配度:%d \n", key_fangchan.key_list[sim_idex].word,key_fangchan.key_list[sim_idex].label, similarity);
                             printf("%s",send_buffer);
                             data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
                         }else{
@@ -535,7 +488,12 @@ int main(int argc, char **argv)
         printf("Initialized in %fsec\n", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
         printf("Mode: %s\n", mode);
         printf("+-Version: %s (%s)\n", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
+
     }
+     //test_py
+    char code[64], single[64];
+    py_to_code("yuan2,jiao3,fen1", code, single);
+    printf("code:%s;single:%s\n", code, single);
 
     add_dict_to_arry("/root/dict/house/house_rex.txt", key_arry);
     printf("there %d arry in key_arry\n", key_arry->length);
