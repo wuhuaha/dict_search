@@ -266,7 +266,7 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
         char label[4096] = {0};
         char word[4096] = {0};        
         char send_buffer[1024];
-        int idex = 0,j = 0, data_len = 0; 
+        int idex = 0,j = 0, data_len = 0, similarity = 0; 
 
         memset(word, 0, sizeof(word));
         data_len = data_recv(client_sockfd, word, sizeof(word));
@@ -329,11 +329,11 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
             }
             if(*label == 0)
             {
-                if(search_pinyin(pinyin, class_lex->class_single, &idex))
+                if((similarity = search_pinyin(pinyin, class_lex->class_single, &idex)))
                 {
                     key_entry* entry = *(class_lex->class_single->items + idex);
                     snprintf(label, sizeof(label), "%s", entry->label);
-                    snprintf(send_buffer, sizeof(send_buffer),"拼音匹配项：[%s], 拼音匹配标签：[%s]\n", entry->word, entry->label);
+                    snprintf(send_buffer, sizeof(send_buffer),"拼音匹配项：[%s], 拼音匹配标签：[%s], 匹配度：[%d], 匹配类型[%s]\n", entry->word, entry->label, similarity, (similarity == 100) ? "完全匹配" : ((similarity == 89) ? "分隔匹配" : ((similarity == 87) ? "发音类型匹配" : "非完全匹配")));
                     data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
                 }
             }  
