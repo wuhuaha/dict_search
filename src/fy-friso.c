@@ -23,7 +23,6 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include "socket_server.h"
-#include "key.h"
 #include "pinyin.h"
 
 #define __LENGTH__ 15
@@ -88,13 +87,6 @@ typedef struct run_arg_tag{
     char    path[256];      //配置文件路径
 }SZ_RUN_ARG_S;
 
-typedef struct {
-    fstring word;//词内容
-    fstring pinyin;//词拼音
-    fstring label; //标签
-    friso_array_t word_list;
-} key_entry;
-
 #ifndef SAFE_CLOSE_SOCKET
 #define SAFE_CLOSE_SOCKET(fd){\
     if (fd > 0){\
@@ -137,6 +129,16 @@ int free_key_items(friso_array_entry* items)
     return 0;
 }
 
+int free_class_lex( class_lex_t  class_lex )
+{
+    if (class_lex == NULL){
+        return 0;
+    }
+    free_key_items(class_lex->class_rex);
+    free_key_items(class_lex->class_single);
+    return 0;
+}
+
 int print_key_items(friso_array_entry* items)
 {
     register int i = 0, j = 0;
@@ -161,7 +163,7 @@ int rex_string(fstring string,friso_array_entry* items)
     {
         entry = *(items->items + i);
         for(j = 0; j < entry->word_list->length; j++){
-            printf("——word_list[%d]:%s——", j, (char *)(*(entry->word_list->items + j)));    
+            //printf("——word_list[%d]:%s——", j, (char *)(*(entry->word_list->items + j)));    
             tmp = (char *)(*(entry->word_list->items + j));        
             if(strstr(string, tmp) == NULL)
                 break;
@@ -171,11 +173,9 @@ int rex_string(fstring string,friso_array_entry* items)
             */
             if(j == (entry->word_list->length - 1)){
                 return (i + 1);
-            }
-            printf("flag");                
+            }                
             //tmp_last = tmp;
-        }            
-        printf("flag:%d\n",i);
+        }     
     } 
     return 0;
 }
@@ -257,7 +257,7 @@ static void sig_handle( int num )
 * @arg: [IN] 
 * @return 成功: 0 失败: -1
 */
-static int work_child_process( int client_sockfd, friso_t *friso_list, friso_config_t *config_list, friso_array_t key_arry)
+static int work_child_process( int client_sockfd, friso_t *friso_list, friso_config_t *config_list, class_lex_t class_lex)
 {
     
         friso_task_t task; 
@@ -266,7 +266,7 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
         char label[4096] = {0};
         char word[4096] = {0};        
         char send_buffer[1024];
-        unsigned int idex = 0,j = 0, data_len = 0; 
+        int idex = 0,j = 0, data_len = 0; 
 
         memset(word, 0, sizeof(word));
         data_len = data_recv(client_sockfd, word, sizeof(word));
@@ -318,8 +318,8 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
             }
             if(*label == 0)
             {
-                if((idex = rex_string(word, key_arry)) > 0){
-                    key_entry* entry = *(key_arry->items + idex - 1);
+                if((idex = rex_string(word, class_lex->class_rex)) > 0){
+                    key_entry* entry = *(class_lex->class_rex->items + idex - 1);
                     snprintf(label, sizeof(label), "%s", entry->label);
                     snprintf(send_buffer, sizeof(send_buffer),"正则匹配项：[%s], 正则匹配标签：[%s]\n", entry->word, entry->label);
                     data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
@@ -329,34 +329,20 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
             }
             if(*label == 0)
             {
-                int similarity = -1, sim_tmp, sim_idex = 0;
-                for(idex = 0; idex < key_fangchan.key_num; idex++){
-                    if((sim_tmp = compute_code_edit_distance(pinyin, key_fangchan.key_list[idex].pinyin)) == 100){
-                        snprintf(send_buffer, sizeof(send_buffer), "拼音完全匹配，匹配结果:%s,标签:%s\n", key_fangchan.key_list[idex].word, key_fangchan.key_list[idex].label);
-                        printf("%s",send_buffer);
-                        data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
-                        //break;
-                    }
-                    if(sim_tmp > similarity){
-                        similarity = sim_tmp;
-                        sim_idex = idex;
-                        printf("目前匹配度最高为：%d\n",similarity);
-                    }
-                    if((idex == key_fangchan.key_num - 1) && (similarity < 100)){
-                        if(similarity > 50){
-                            snprintf(send_buffer, sizeof(send_buffer) , "拼音非完整匹配, 拼音匹配最高结果:[%s],标签:[%s],匹配度:%d \n", key_fangchan.key_list[sim_idex].word,key_fangchan.key_list[sim_idex].label, similarity);
-                            printf("%s",send_buffer);
-                            data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
-                        }else{
-                            snprintf(send_buffer, sizeof(send_buffer), "无匹配项\n");
-                            printf("%s",send_buffer);
-                            data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
-                            similarity = 0;
-                            printf("none result\n");
-                        }
-                    }
+                if(search_pinyin(pinyin, class_lex->class_single, &idex))
+                {
+                    key_entry* entry = *(class_lex->class_single->items + idex);
+                    snprintf(label, sizeof(label), "%s", entry->label);
+                    snprintf(send_buffer, sizeof(send_buffer),"拼音匹配项：[%s], 拼音匹配标签：[%s]\n", entry->word, entry->label);
+                    data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
                 }
             }  
+            if(*label == 0)
+            {                
+                snprintf(send_buffer, sizeof(send_buffer),"匹配失败\n");
+                data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
+                printf("%s",send_buffer);
+            }
                             
             e_time = clock();
             printf("\nDone, cost < %fsec\n", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
@@ -414,8 +400,6 @@ int add_dict_to_arry(char *file_path,friso_array_entry *items)
             array_list_add(entry_test->word_list, word);
             //printf("%s",buffer);
         } 
-        //printf("\n");
-        //free_key_entry(entry_test);
     }
     return 0;
 }
@@ -432,7 +416,9 @@ int main(int argc, char **argv)
     pid_t ppid;
     int client_sockfd;
     int ret = 0;
-    friso_array_t key_arry = new_array_list_with_opacity(512);
+    class_lex house_lex;
+    house_lex.class_rex =  new_array_list_with_opacity(512);
+    house_lex.class_single = new_array_list_with_opacity(512);
 
     friso_t friso_list[__DOMAIN_NUM__];
     friso_config_t config_list[__DOMAIN_NUM__];
@@ -490,14 +476,12 @@ int main(int argc, char **argv)
         printf("+-Version: %s (%s)\n", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
 
     }
-     //test_py
-    char code[64], single[64];
-    py_to_code("yuan2,jiao3,fen1", code, single);
-    printf("code:%s;single:%s\n", code, single);
 
-    add_dict_to_arry("/root/dict/house/house_rex.txt", key_arry);
-    printf("there %d arry in key_arry\n", key_arry->length);
-    //print_key_items(key_arry);
+    add_dict_to_arry("/root/dict/house/house_rex.txt", house_lex.class_rex);
+    printf("there %d arry in key_rex_arry\n", house_lex.class_rex->length);
+    add_dict_to_arry("/root/dict/house/house.txt", house_lex.class_single);
+    printf("there %d arry in key_rex_arry\n", house_lex.class_single->length);
+    //print_key_items(key_rex_arry);
 
    while(run_flag){
         tv.tv_sec = READ_TIMEOUT_SEC;
@@ -542,7 +526,7 @@ int main(int argc, char **argv)
                     //关闭侦听socket
                     SAFE_CLOSE_SOCKET(g_sz_run_arg.listen_fd);
                     
-                    ret = work_child_process(client_sockfd, friso_list, config_list, key_arry);
+                    ret = work_child_process(client_sockfd, friso_list, config_list, &house_lex);
                         
                     SAFE_CLOSE_SOCKET(client_sockfd);
 
@@ -567,7 +551,7 @@ err:
         friso_free(friso_list[i]);  
     }      
 
-    free_key_items(key_arry);
+    free_class_lex(&house_lex);
 
     return 0;
 }

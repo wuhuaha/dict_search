@@ -5,7 +5,8 @@
 #include "py_code.h"
 #include "friso_API.h"
 
-int py_entry_to_code(char *py, char *code, char *single)
+
+int py_entry_to_code(char *py, char *code, char *class_code)
 {
     pinyin_convert_arry* py_convert_entry_t = NULL;
     register int i = 0;
@@ -24,45 +25,55 @@ int py_entry_to_code(char *py, char *code, char *single)
         i = strlen(code);
         *(code + i) = '#';
         *(code + i + 1) = 0;
-        strcat(single, "#");
+        strcat(class_code, "#");
         return 2;
     }
-    
-    for(i = 0; i < 24; i++)
+    if(strcmp(py_convert_entry_t->shengmu, "none") != 0)
     {
-        if(strcmp(py_convert_entry_t->shengmu, shengmu_code[i].py) == 0)
+        for(i = 0; i < 24; i++)
         {
+            if(strcmp(py_convert_entry_t->shengmu, shengmu_code[i].py) == 0)
+            {
             strcat(code, shengmu_code[i].code);
+            strcat(class_code, shengmu_code[i].class_code);
             break;
+            }
         }
     }
-    for(i = 0; i < 37; i++)
+    if(strcmp(py_convert_entry_t->yunmu, "none") != 0)
     {
-        if(strcmp(py_convert_entry_t->yunmu, yunmu_code[i].py) == 0)
+        for(i = 0; i < 37; i++)
         {
+            if(strcmp(py_convert_entry_t->yunmu, yunmu_code[i].py) == 0)
+            {
             strcat(code, yunmu_code[i].code);
+            strcat(class_code, yunmu_code[i].class_code);
             break;
+            }
         }
     }
     i = strlen(code);
     *(code + i) = py_convert_entry_t->shengdiao;
     *(code + i + 1) = 0;
-    strcat(single, py_convert_entry_t->py_single);
+    i = strlen(class_code);
+    *(class_code + i) = py_convert_entry_t->shengdiao;
+    *(class_code + i + 1) = 0;
     //sprintf(single, "%s", py_convert_entry_t->py_single);
     //printf("py:%s;\tcode:%s;\tsingle:%s\n", py, code, py_convert_entry_t->py_single);
     return 0;
 }
 
-int py_to_code(char *py, char *code, char *single)
+int py_to_code(char *py, char *code, char *class_code)
 {
     //printf("%s",py);
     string_split_entry sse;
     char pinyin_entry[256] = "";
     string_split_reset( &sse, ",", py);
+    *code = *class_code = 0;
     while( string_split_next( &sse, pinyin_entry ) != NULL ) 
     {
         //printf("%s\t",pinyin_entry);
-        py_entry_to_code(pinyin_entry, code, single);
+        py_entry_to_code(pinyin_entry, code, class_code);
     }
     //printf("end\n");
     return 0;
@@ -116,7 +127,11 @@ int compute_edit_distance(char*  word, char*  key)
         if(matrix[i][len2] < mini_distance)
             mini_distance = matrix[i][len2];
     }
-    similarity = (len2 - mini_distance) * 100 / len2;
+    if(mini_distance == 1){
+        similarity = 90;
+    }else{
+        similarity = (len2 - mini_distance) * 100 / len2;
+    }    
     //printf("similarity of %s(word) and %s(key) is :%d\n", word, key, similarity);
     return similarity;    
 }
@@ -133,4 +148,68 @@ int  compute_code_edit_distance(char*  word, char*  key)
     //similarity =  compute_edit_distance(word, key);
     printf("distance of %s[%s] and %s[%s] is :%d\n", word, code_word, key, code_key, similarity);
     return similarity;
+}
+
+int remove_spec_tone(fstring const src, fstring result)
+{
+    register int i = 0, j = 0;
+    while(src[i] != 0){
+        if(src[i] != '1'){
+            result[j++] = src[i++];
+        }else{
+            i++;
+        }
+    }
+    result[j] = 0;
+    return 0;
+}
+
+int search_pinyin(fstring py, friso_array_t key_list, int* result)
+{
+    register int i = 0;
+    register int similarity = -1, sim_tmp, class_sim_tmp, sim_idex = 0;
+    register key_entry* entry;
+    char code_word[256] = "", code_entry[64] = "", class_word[256] = "", class_entry[64] = "", tone_word[256] = "", tone_entry[64] = "";
+    py_to_code(py, code_word, class_word);
+    printf("py:%s,py_code:%s,class_code:%s\n",py, code_word, class_word);
+    remove_spec_tone(code_word, tone_word);
+    for(i = 0; i < key_list->length; i++)
+    {
+        //计算code编辑距离
+        entry = *(key_list->items + i);
+        py_to_code(entry->pinyin, code_entry, class_entry);
+        if((sim_tmp =  compute_edit_distance(code_word, code_entry)) == 100)
+        {
+            similarity = 100;
+            printf("完全匹配，结果:%s,标签：%s\n", entry->word, entry->label);
+            *result = i;
+            return similarity;
+        }
+        if((class_sim_tmp =  compute_edit_distance(class_word, class_entry)) == 100)
+        {
+            sim_tmp = 87;
+            printf("读音类型匹配，结果:%s,标签：%s\n", entry->word, entry->label);
+            *result = i;
+        }
+        remove_spec_tone(code_entry, tone_entry);
+         if((class_sim_tmp =  compute_edit_distance(tone_word, tone_entry)) == 100)
+        {
+            sim_tmp = 89;
+            printf("去一声匹配，结果:%s,标签：%s\n", entry->word, entry->label);
+            *result = i;
+        }
+        if(sim_tmp > similarity){
+            similarity = sim_tmp;
+            sim_idex = i;
+            //printf("目前匹配度最高为：%d\n",similarity);
+        }
+    }
+    if(similarity > 85){
+        entry = *(key_list->items + sim_idex);
+        printf("非完全匹配，结果%s, 标签：%s, 匹配度：%d\n", entry->word, entry->label, similarity);
+        *result = sim_idex;
+        return similarity;
+    }
+    printf("length:%d\n",key_list->length);
+    return 0;
 }

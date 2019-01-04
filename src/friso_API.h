@@ -51,9 +51,6 @@ typedef unsigned char uchar_t;
 typedef unsigned int uint_t;
 typedef char * fstring;
 
-
-
-
 /* {{{ fstring handle interface define::start. */
 #define __CHAR_BYTES__ 8
 #define __BUFFER_DEFAULT_LENGTH__ 16
@@ -165,6 +162,20 @@ typedef struct {
 } friso_array_entry;
 
 typedef friso_array_entry * friso_array_t;
+
+typedef struct {
+    fstring word;//词内容
+    fstring pinyin;//词拼音
+    fstring label; //标签
+    friso_array_t word_list;
+} key_entry;
+
+typedef struct  {
+    friso_array_t class_single;
+    friso_array_t class_rex;
+} class_lex;
+
+typedef class_lex*  class_lex_t;
 
 //create a new friso dynamic array.
 //FRISO_API friso_array_t new_array_list( void );

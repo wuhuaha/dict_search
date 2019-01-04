@@ -1,6 +1,8 @@
 #ifndef __PINYIN_H__
 #define __PINYIN_H__
 
+#include "friso_API.h"
+
 typedef struct {
     char py_num[16];    //数字音调形式整拼
     char shengmu[8];    //声母
@@ -15,6 +17,7 @@ typedef struct {
 typedef struct {
     char py[8];
     char code[4];
+    char class_code[2];
 }  pinyin_convert_code;
 
 //word:待匹配语句拼音  key:关键词拼音
@@ -25,4 +28,6 @@ int  compute_code_edit_distance(char*  word, char*  key);
 int py_entry_to_code(char *py, char *code, char *single);
 
 int py_to_code(char *py, char *code, char *single);
+
+int search_pinyin(fstring py, friso_array_t key_list, int* result);
 #endif
