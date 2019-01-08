@@ -15,9 +15,9 @@ typedef struct {
 }  pinyin_convert_arry;
 
 typedef struct {
-    char py[8];
-    char code[4];
-    char class_code[2];
+    char py[16];
+    char code[8];
+    char class_code[8];
 }  pinyin_convert_code;
 
 //word:待匹配语句拼音  key:关键词拼音

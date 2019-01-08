@@ -12,7 +12,10 @@ int py_entry_to_code(char *py, char *code, char *class_code)
     register int i = 0;
     //*code = *single = 0;
     //printf("py:%s\n",py);
-   
+    if( py == NULL || code == NULL || class_code == NULL ){
+        return 0;
+    }
+
     for(i = 0; i < 1459; i++)
     {
         if(strcmp(py, pinyin_convert[i].py_num) == 0){
@@ -70,6 +73,9 @@ int py_to_code(char *py, char *code, char *class_code)
     char pinyin_entry[256] = "";
     string_split_reset( &sse, ",", py);
     *code = *class_code = 0;
+    if( py == NULL || code == NULL || class_code == NULL ){
+        return 0;
+    }
     while( string_split_next( &sse, pinyin_entry ) != NULL ) 
     {
         //printf("%s\t",pinyin_entry);
@@ -87,6 +93,9 @@ int compute_edit_distance(char*  word, char*  key)
     int len2 = strlen(key);
     //printf("len1=%d", len1);
     //printf("len2=%d\n", len2);
+    if( word == NULL || key == NULL ){
+        return 0;
+    }
     mini_distance = len2;
     if (len1 == 0) {
         printf("<error>len1=%d", len1);
@@ -135,10 +144,15 @@ int compute_edit_distance(char*  word, char*  key)
     //printf("similarity of %s(word) and %s(key) is :%d\n", word, key, similarity);
     return similarity;    
 }
-
+/*
+*计算返两个拼音的编码相似度并返回
+*/
 int  compute_code_edit_distance(char*  word, char*  key)
 {
     //printf("word:%s\tkey:%s\n", word, key);
+    if( word == NULL || key == NULL ){
+        return 0;
+    }
     int similarity = 0;
     char code_word[256] = "", code_key[64] = "", single_word[256] = "", single_key[64] = "";
     py_to_code(word, code_word, single_word);
@@ -149,9 +163,15 @@ int  compute_code_edit_distance(char*  word, char*  key)
     printf("distance of %s[%s] and %s[%s] is :%d\n", word, code_word, key, code_key, similarity);
     return similarity;
 }
-
+/*
+*将src中除了声调“1”以外的其他部分复制给result
+*返回 成功：result的字符数   失败：0
+*/
 int remove_spec_tone(fstring const src, fstring result)
 {
+    if((src == NULL) || (result == NULL) ||(*src == 0)){
+        return 0;
+    }
     register int i = 0, j = 0;
     while(src[i] != 0){
         if(src[i] != '1'){
@@ -161,15 +181,23 @@ int remove_spec_tone(fstring const src, fstring result)
         }
     }
     result[j] = 0;
-    return 0;
+    return j;
 }
-
+/*
+*在key_list中搜索py中含有的与其元素匹配度最高的成员，搜索成功则返回匹配度
+*并将结果所在的元素位数存到result中
+* 成功：返回相似度；失败：返回0
+*/
 int search_pinyin(fstring py, friso_array_t key_list, int* result)
 {
     register int i = 0;
     register int similarity = -1, sim_tmp, class_sim_tmp, sim_idex = 0;
     register key_entry* entry;
     char code_word[256] = "", code_entry[64] = "", class_word[256] = "", class_entry[64] = "", tone_word[256] = "", tone_entry[64] = "";
+    if((strlen(py) >= 255) || (py == NULL) || (key_list == NULL) || (result == NULL) || (*py == 0)){
+        printf("search pinyin input error\n");
+        return 0;
+    }
     py_to_code(py, code_word, class_word);
     printf("py:%s,py_code:%s,class_code:%s\n",py, code_word, class_word);
     remove_spec_tone(code_word, tone_word);

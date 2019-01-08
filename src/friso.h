@@ -118,8 +118,10 @@ typedef struct {
     char pos;        //part of speech.
     int offset;     //start offset of the word.
     char word[__HITS_WORD_LENGTH__];
+    char syn[__HITS_SYN_LENGTH__];
     char py[__HITS_PINYIN_LENGTH__];
     char label[__HITS_LABEL_LENGTH__];
+    friso_link_t syn_list;
 } friso_token_entry;
 typedef friso_token_entry * friso_token_t;
 

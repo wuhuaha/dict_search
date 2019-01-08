@@ -59,6 +59,20 @@ FRISO_API void free_link_list( friso_link_t link )
     FRISO_FREE( link );
 }
 
+//free the given link list and  values in it
+FRISO_API void free_link_list_and_value( friso_link_t link ) 
+{
+    link_node_t node, next;
+    for ( node = link->head; node != NULL; ) {
+        next = node->next;
+        FRISO_FREE( node->value );
+        FRISO_FREE( node );
+        node = next;
+    }
+
+    FRISO_FREE( link );
+}
+
 //clear all nodes in the link list.
 FRISO_API friso_link_t link_list_clear( 
     friso_link_t link ) 

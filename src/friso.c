@@ -308,6 +308,10 @@ FRISO_API void friso_free_task( friso_task_t task )
     }
 
     //free the allocations of the token.
+    if ( task->token->syn_list != NULL ) {
+        free_link_list_and_value( task->token->syn_list );
+    }
+
     if ( task->token != NULL ) {
         friso_free_token( task->token );
     }
@@ -1198,6 +1202,37 @@ FRISO_API lex_entry_t next_complex_cjk(
  * @param    task
  * @param    lex
  * */
+
+__STATIC_API__ void token_sphinx_output( 
+        friso_task_t task, 
+        lex_entry_t lex )
+{
+    uint_t i, j, len;
+    fstring _word;
+    len = 0;
+    task->token->syn_list = new_link_list();
+    lex_entry_t e;
+
+    //append the synoyums words.
+    for ( i = 0; i < lex->syn->length; i++  ) {
+        _word = ( fstring ) lex->syn->items[i];
+        j = strlen(_word);
+        if ( ( len + j + 1 ) >= __HITS_SYN_LENGTH__ ) break;
+        if(len > 0){
+            memcpy(task->token->syn + len, "|", 1);
+            len += 1;
+        }        
+        memcpy(task->token->syn + len, _word, j);
+        len += j;
+        //add to list
+        e = new_lex_entry( _word, NULL, 0, strlen(_word), __LEX_NCSYN_WORDS__ );
+        link_list_add( task->token->syn_list, e);
+    } 
+
+    //set the new end of the buffer.
+    task->token->syn[len] = '\0';
+}
+/*
 __STATIC_API__ void token_sphinx_output( 
         friso_task_t task, 
         lex_entry_t lex )
@@ -1205,10 +1240,10 @@ __STATIC_API__ void token_sphinx_output(
     uint_t i, j, len;
     fstring _word;
     len = lex->length;
-
     //append the synoyums words.
     for ( i = 0; i < lex->syn->length; i++  ) {
         _word = ( fstring ) lex->syn->items[i];
+        printf("同义词%s\n",_word);
         j = strlen(_word);
         if ( ( len + j + 1 ) >= __HITS_WORD_LENGTH__ ) break;
         memcpy(task->token->word + len, "|", 1);
@@ -1220,6 +1255,7 @@ __STATIC_API__ void token_sphinx_output(
     //set the new end of the buffer.
     task->token->word[len] = '\0';
 }
+*/
 /* }}} */
 
 /* {{{ normal style output synonyms words append.
@@ -1374,7 +1410,12 @@ FRISO_API friso_token_t next_mmseg_token(
     string_buffer_t sb = NULL;
     lex_entry_t lex = NULL, tmp = NULL, sword = NULL;
 
-    task->token->py[0] = '\0';
+    task->token->py[0] = task->token->syn[0] =0;
+    //将上一个任务的同义词链表free掉
+    if ( task->token->syn_list != NULL ) {
+        free_link_list_and_value( task->token->syn_list );
+        task->token->syn_list = NULL;
+    }
 
     /* {{{ task word pool check */
 
@@ -1554,11 +1595,29 @@ FRISO_API friso_token_t next_mmseg_token(
             
 
             //check and append the synonyms words
+            //将同义词及同义词的标签加入到同义词链表中并返回
             if ( config->add_syn && lex->syn != NULL ) {
                 if ( config->spx_out == 1 ) {
                     token_sphinx_output(task, lex);
                 } else {
                     token_normal_output(task, lex, 0);
+                }
+                link_node_t node, next;
+                lex_entry_t entry_tmp, lex_tmp;
+                for ( node = task->token->syn_list->head; node != NULL; ) {
+                    if(node->value != NULL){
+                        entry_tmp = (lex_entry_t)(node->value);                        
+                        if ( friso_dic_match(friso->dic, __LEX_CJK_WORDS__, entry_tmp->word) ) {
+                            lex_tmp = friso_dic_get(friso->dic, __LEX_CJK_WORDS__, entry_tmp->word);
+                            if((lex_tmp->label != NULL) && (strcmp(lex_tmp->label,"null") != 0)){
+                                entry_tmp->label = lex_tmp->label;
+                                //printf("%s,label:%s\n", lex_tmp->word, lex_tmp->label);
+                            }
+
+                        }
+                    }                       
+                    next = node->next;
+                    node = next;
                 }
             }
 

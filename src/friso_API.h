@@ -44,8 +44,15 @@ exit(1);
  */
 #define FRISO_CALLOC(_bytes, _blocks)     calloc(_bytes, _blocks)
 #define FRISO_MALLOC(_bytes)         malloc(_bytes)
-#define FRISO_FREE( _ptr )        free( _ptr )
-
+#ifndef FRISO_FREE
+#define FRISO_FREE(ptr) \
+{ \
+    if (NULL != ptr) { \
+        free(ptr); \
+        ptr = NULL; \
+    } \
+}
+#endif
 typedef unsigned short ushort_t;
 typedef unsigned char uchar_t;
 typedef unsigned int uint_t;
@@ -263,6 +270,9 @@ FRISO_API friso_link_t new_link_list( void );
 
 //free the specified link list
 FRISO_API void free_link_list( friso_link_t );
+
+//free the given link list and  values in it
+FRISO_API void free_link_list_and_value( friso_link_t link );
 
 //return the size of the current link list.
 //FRISO_API uint_t link_list_size( friso_link_t );

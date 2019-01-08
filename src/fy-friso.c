@@ -68,11 +68,7 @@ char word_type[16][32] = {
     "PUNC_WORDS",
     "UNKNOW_WORDS"
 };
-/*
-extern pinyin_convert_arry pinyin_convert[1459];
-extern pinyin_convert_code yunmu_code[37];
-extern pinyin_convert_code shengmu_code[24]; 
-*/
+
 #define __DOMAIN_NUM__  2
 #define __DOMAIN_PUBLIC__ 0
 char domain_name[__DOMAIN_NUM__][32] = {
@@ -121,6 +117,9 @@ int free_key_entry( key_entry *entry )
 int free_key_items(friso_array_entry* items)
 {
     register int i = 0;
+    if (items == NULL){
+        return 0;
+    }
     for(i = 0; i < items->length; i++)
     {
         free_key_entry(*(items->items + i));
@@ -142,6 +141,9 @@ int free_class_lex( class_lex_t  class_lex )
 int print_key_items(friso_array_entry* items)
 {
     register int i = 0, j = 0;
+    if (items == NULL){
+        return 0;
+    }
     register key_entry* entry;
     for(i = 0; i < items->length; i++)
     {
@@ -154,11 +156,14 @@ int print_key_items(friso_array_entry* items)
     return 0;
 }
 
-int rex_string(fstring string,friso_array_entry* items)
+static int rex_string(fstring string,friso_array_entry* items, int* result)
 {
     register int i = 0, j = 0;
     register key_entry* entry;
     register char *tmp = NULL;
+    if( (items == NULL) || (result == NULL) ){
+        return 0;
+    }
     for(i = 0; i < items->length; i++)
     {
         entry = *(items->items + i);
@@ -167,14 +172,11 @@ int rex_string(fstring string,friso_array_entry* items)
             tmp = (char *)(*(entry->word_list->items + j));        
             if(strstr(string, tmp) == NULL)
                 break;
-            /*
-            if((tmp_last != NULL) && (tmp < tmp_last))
-                break;
-            */
             if(j == (entry->word_list->length - 1)){
-                return (i + 1);
+                *result = i;
+                return 1;
             }                
-            //tmp_last = tmp;
+
         }     
     } 
     return 0;
@@ -193,7 +195,6 @@ static int get_options(int argc, char *argv[], SZ_RUN_ARG_S *pst_arg)
     int argc_num = 0;
     int i = 0;
     
-
     if (NULL == pst_arg){
         return -1;
     }
@@ -300,6 +301,30 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
                         strcat(label, "|");
                     strcat(label, task->token->label);    
                 }
+                if(*task->token->syn != 0){
+                    printf("同义词：%s\n", task->token->syn);
+                    /*
+                    */
+                    link_node_t node, next;
+                    lex_entry_t entry;
+                    j = 0;
+                    for ( node = task->token->syn_list->head; node != NULL; ) {
+                    if(node->value != NULL){
+                        entry = (lex_entry_t)(node->value);
+                        //printf("%s\n", entry->word);
+                        if((entry->label != NULL)&&(strcmp(entry->label, "null") != 0)){
+                            printf("同义词[%s]标签[%s]\n", entry->word, entry->label);
+                            if(*label != 0)
+                            strcat(label, "|");
+                            strcat(label, entry->label);
+                        }
+                    }                         
+                        printf("%d\n",j++);
+                        next = node->next;
+                        node = next;
+                    }
+                   
+                }
                 snprintf(send_buffer, sizeof(send_buffer), "%s  ", task->token->word);
                 data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
                 j = 0;
@@ -312,14 +337,15 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
             printf("\n");
             data_send(client_sockfd, "\n", 2);
             pinyin[--idex] = '\0';   
+            printf("pinyin：%s\n",pinyin);
             if(*label != 0){
                 snprintf(send_buffer, sizeof(send_buffer), "直接匹配标签：[%s]\n", label);
                 data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
             }
             if(*label == 0)
             {
-                if((idex = rex_string(word, class_lex->class_rex)) > 0){
-                    key_entry* entry = *(class_lex->class_rex->items + idex - 1);
+                if((rex_string(word, class_lex->class_rex, &idex)) > 0){
+                    key_entry* entry = *(class_lex->class_rex->items + idex);
                     snprintf(label, sizeof(label), "%s", entry->label);
                     snprintf(send_buffer, sizeof(send_buffer),"正则匹配项：[%s], 正则匹配标签：[%s]\n", entry->word, entry->label);
                     data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
