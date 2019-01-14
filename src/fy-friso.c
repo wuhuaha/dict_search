@@ -24,6 +24,9 @@
 #include <signal.h>
 #include "socket_server.h"
 #include "pinyin.h"
+#include "zlog.h"
+#include "nlp_log.h"
+
 
 #define __LENGTH__ 15
 #define __INPUT_LENGTH__ 20480
@@ -68,6 +71,8 @@ char word_type[16][32] = {
     "PUNC_WORDS",
     "UNKNOW_WORDS"
 };
+
+zlog_category_t * sa_log = NULL;
 
 #define __DOMAIN_NUM__  2
 #define __DOMAIN_PUBLIC__ 0
@@ -148,10 +153,10 @@ int print_key_items(friso_array_entry* items)
     for(i = 0; i < items->length; i++)
     {
         entry = *(items->items + i);
-        printf("key[%d]\tword:%s\tlabel:%s\t", i, entry->word, entry->label);
+        log_debug(sa_log, "main", "key[%d]\tword:%s\tlabel:%s\t", i, entry->word, entry->label);
         for(j = 0; j < entry->word_list->length; j++)
-            printf("——word_list[%d]:%s——", j, (char *)(*(entry->word_list->items + j)));
-        printf("\n");
+            log_debug(sa_log, "main", "——word_list[%d]:%s——", j, (char *)(*(entry->word_list->items + j)));
+        log_debug(sa_log, "main", "");
     }   
     return 0;
 }
@@ -168,7 +173,7 @@ static int rex_string(fstring string,friso_array_entry* items, int* result)
     {
         entry = *(items->items + i);
         for(j = 0; j < entry->word_list->length; j++){
-            //printf("——word_list[%d]:%s——", j, (char *)(*(entry->word_list->items + j)));    
+            //log_debug(sa_log, "main", "——word_list[%d]:%s——", j, (char *)(*(entry->word_list->items + j)));    
             tmp = (char *)(*(entry->word_list->items + j));        
             if(strstr(string, tmp) == NULL)
                 break;
@@ -200,7 +205,7 @@ static int get_options(int argc, char *argv[], SZ_RUN_ARG_S *pst_arg)
     }
 
     for(; i< argc; i++){
-        printf("argv[%d]: %s", i, argv[i]);
+        log_debug(sa_log, "main", "argv[%d]: %s", i, argv[i]);
     }
     
     /*解析参数*/
@@ -219,14 +224,14 @@ static int get_options(int argc, char *argv[], SZ_RUN_ARG_S *pst_arg)
                 break;  
             }
             default: {
-                printf("arguments error!\n");
+                log_err(sa_log, "main", "arguments error!");
                 break;
             }
         }  
     }
 
     if((pst_arg->port == 0) || (pst_arg->path[0] == 0) ){
-        printf("arguments error!     You must do like:\nfriso -P 8080 -L /usr/friso.ini\n");
+        log_err(sa_log, "main", "arguments error!     You must do like:friso -P 8080 -L /usr/friso.ini");
         return -1;
     }
 
@@ -246,10 +251,10 @@ static void sig_handle( int num )
     {  
         if ( WIFEXITED(status) )  
         {  
-            printf("child process revoked. pid[%6d], exit code[%d]\n",pid, WEXITSTATUS(status));  
+            log_debug(sa_log, "main", "child process revoked. pid[%6d], exit code[%d]",pid, WEXITSTATUS(status));  
         }  
         else { 
-            printf("child process revoked.but ...\n");  
+            log_debug(sa_log, "main", "child process revoked.but ...");  
         }
     }  
 } 
@@ -267,14 +272,16 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
         char label[4096] = {0};
         char word[4096] = {0};        
         char send_buffer[1024];
+        char send_buffer_tmp[1024];
         int idex = 0,j = 0, data_len = 0, similarity = 0; 
 
         memset(word, 0, sizeof(word));
         data_len = data_recv(client_sockfd, word, sizeof(word));
         idex = atoi(word) < __DOMAIN_NUM__  ? atoi(word) : __DOMAIN_PUBLIC__;
-        printf("domain:%d\n",idex);
+        log_debug(sa_log, "main", "domain:%d",idex);
         friso_t friso  = friso_list[idex]; 
         friso_config_t config = config_list[idex];
+        char * class = domain_name[idex];
 
         while(1)
         {
@@ -283,65 +290,84 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
             *label = 0;
             memset(word, 0, sizeof(word));
             data_len = data_recv(client_sockfd, word, sizeof(word));
-            printf("word:%s,data_len:%d\n",word, data_len);
+            if(data_len <= 0){
+                break;
+            }
+            log_info(sa_log, class, "word:%s",word);
             //set the task.
             task = friso_new_task();
             friso_set_text( task, word );
-            println("分词结果:");
+            log_debug(sa_log, class, "分词结果:");
             s_time = clock();
-            snprintf(send_buffer, sizeof(send_buffer), "包含词:");
+            snprintf(send_buffer, sizeof(send_buffer), "包含词:\n");
             data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
             while ( ( config->next_token( friso, config, task ) ) != NULL ) {
-            //printf("word:%s[%d, %d, %d] ", task->token->word, 
+            //log_debug(sa_log, "main", "word:%s[%d, %d, %d] ", task->token->word, 
             //        task->token->offset, task->token->length, task->token->rlen );
-                printf("result: word:%s, pinyin:%s, type:%s\n", task->token->word ,task->token->py, word_type[task->token->type]);
+                //本次token结果
+                log_debug(sa_log, class, "result: word:%s, pinyin:%s, type:%s", task->token->word ,task->token->py, word_type[task->token->type]);
+                snprintf(send_buffer, sizeof(send_buffer),"%s", task->token->word);
+                //如果由对应的标签则进行打印
                 if(*task->token->label != 0){
-                    printf("标签：%s\n", task->token->label);
+                   snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),"[%s]", task->token->label);
+                   strcat(send_buffer, send_buffer_tmp);
+                    //已经存在标签了则添加在尾部
                     if(*label != 0)
                         strcat(label, "|");
                     strcat(label, task->token->label);    
-                }
-                if(*task->token->syn != 0){
-                    printf("同义词：%s\n", task->token->syn);
-                    /*
-                    */
-                    link_node_t node, next;
-                    lex_entry_t entry;
-                    j = 0;
-                    for ( node = task->token->syn_list->head; node != NULL; ) {
-                    if(node->value != NULL){
-                        entry = (lex_entry_t)(node->value);
-                        //printf("%s\n", entry->word);
-                        if((entry->label != NULL)&&(strcmp(entry->label, "null") != 0)){
-                            printf("同义词[%s]标签[%s]\n", entry->word, entry->label);
-                            if(*label != 0)
-                            strcat(label, "|");
-                            strcat(label, entry->label);
+                }else{
+                    //如果含有同义词，则查询同义词的标签
+                    if(*task->token->syn != 0){      
+                        //所有同义词             
+                        //snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),"|%s", task->token->syn);
+                        //strcat(send_buffer, send_buffer_tmp);
+                    
+                        link_node_t node, next;
+                        lex_entry_t entry;
+                        j = 0;
+                        for ( node = task->token->syn_list->head; node != NULL; ) {
+                            if(node->value != NULL){
+                                entry = (lex_entry_t)(node->value);
+                                if((entry->label != NULL)&&(strcmp(entry->label, "null") != 0)){
+                                    snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),"|%s[%s]", entry->word, entry->label);
+                                    strcat(send_buffer, send_buffer_tmp);
+                                    if(*label != 0)
+                                    strcat(label, "|");
+                                    strcat(label, entry->label);
+                                    break;
+                                }
+                            }  
+                            next = node->next;
+                            node = next;
                         }
-                    }                         
-                        printf("%d\n",j++);
-                        next = node->next;
-                        node = next;
-                    }
                    
+                    }
                 }
-                snprintf(send_buffer, sizeof(send_buffer), "%s  ", task->token->word);
+                log_info(sa_log, class, "%s", send_buffer);
+                strcat(send_buffer, "\n");
                 data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
                 j = 0;
                 *task->token->label = 0;
+                //复制本token的拼音到尾部
                 while( task->token->py[j] != '\0'){
-                pinyin[idex++] = task->token->py[j++];
+                    pinyin[idex++] = task->token->py[j++];
                 }  
                 pinyin[idex++] = ',';      
             }
-            printf("\n");
+
+            //为了显示方便
             data_send(client_sockfd, "\n", 2);
-            pinyin[--idex] = '\0';   
-            printf("pinyin：%s\n",pinyin);
+            pinyin[--idex] = '\0'; 
+
+            //记录完整拼音
+            log_info(sa_log, class, "pinyin：%s",pinyin);
+
+            //如果在分词的同时已经得到了标签则直接输出
             if(*label != 0){
                 snprintf(send_buffer, sizeof(send_buffer), "直接匹配标签：[%s]\n", label);
                 data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
             }
+            //无标签则开始正则匹配
             if(*label == 0)
             {
                 if((rex_string(word, class_lex->class_rex, &idex)) > 0){
@@ -353,6 +379,7 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
                     *label = 0;
                 }
             }
+            //依旧没有标签，进行拼音匹配
             if(*label == 0)
             {
                 if((similarity = search_pinyin(pinyin, class_lex->class_single, &idex)))
@@ -363,15 +390,17 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
                     data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
                 }
             }  
+            //匹配失败
             if(*label == 0)
             {                
                 snprintf(send_buffer, sizeof(send_buffer),"匹配失败\n");
                 data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
-                printf("%s",send_buffer);
             }
-                            
+            //记录结果
+            log_info(sa_log, class, "%s", send_buffer);
+            //计算用时                
             e_time = clock();
-            printf("\nDone, cost < %fsec\n", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
+            log_debug(sa_log, "main", "Done, cost < %fsec", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
             friso_free_task( task );
         }
         
@@ -387,7 +416,7 @@ int add_dict_to_arry(char *file_path,friso_array_entry *items)
     fd = fopen(file_path, "r+");
     while((line = file_get_line(line_buffer, fd)) != NULL)
     {
-        //printf("get %s from file \n",line);
+        //log_debug(sa_log, "main", "get %s from file ",line);
         string_split_reset( &sse, "/", line);
         if ( string_split_next( &sse, buffer ) == NULL ) {
                 continue;
@@ -396,27 +425,27 @@ int add_dict_to_arry(char *file_path,friso_array_entry *items)
         array_list_add(items, entry_test);
 
         entry_test->word = string_copy_heap(buffer, strlen(buffer));
-        //printf("word:%s\n",entry_test->word);
+        //log_debug(sa_log, "main", "word:%s",entry_test->word);
 
         string_split_next( &sse, buffer );
         if ( strcmp(buffer, "null") != 0 ) {
-            //printf("syn:%s\n",buffer);
+            //log_debug(sa_log, "main", "syn:%s",buffer);
         }
         string_split_next( &sse, buffer );
         if ( strcmp(buffer, "null") != 0 ) {
-            //printf("fre:%s\n",buffer);
+            //log_debug(sa_log, "main", "fre:%s",buffer);
         }
         string_split_next( &sse, buffer );
         if ( strcmp(buffer, "null") != 0 ) {
             entry_test->pinyin = string_copy_heap(buffer, strlen(buffer));
-            //printf("pinyin:%s\n",entry_test->pinyin);
+            //log_debug(sa_log, "main", "pinyin:%s",entry_test->pinyin);
         }else{
             entry_test->pinyin = NULL;
         }
         string_split_next( &sse, buffer );
         if ( strcmp(buffer, "null") != 0 ) {
             entry_test->label = string_copy_heap(buffer, strlen(buffer));
-            //printf("label:%s\n",entry_test->label);
+            //log_debug(sa_log, "main", "label:%s",entry_test->label);
         }
         entry_test->word_list = new_array_list_with_opacity(2);
         string_split_reset( &sse, "*", entry_test->word);
@@ -424,7 +453,7 @@ int add_dict_to_arry(char *file_path,friso_array_entry *items)
         {
             fstring word = string_copy_heap(buffer, strlen(buffer));
             array_list_add(entry_test->word_list, word);
-            //printf("%s",buffer);
+            //log_debug(sa_log, "main", "%s",buffer);
         } 
     }
     return 0;
@@ -454,17 +483,22 @@ int main(int argc, char **argv)
     //initialize
     signal(SIGCHLD, sig_handle);
 
+    if (search_zlog_init(&sa_log) != 0) {
+		log_err(sa_log, "main", "init failed");
+		return -1;
+	}
+
     if (0 != get_options(argc, argv, &g_sz_run_arg)){
-        printf("input parameters parse fail");
+        log_err(sa_log, "main", "input parameters parse fail");
         exit(-1);
     }
 
     if (0 != init_listen_sock(g_sz_run_arg.port, &g_sz_run_arg.listen_fd)){
-        printf("init_sock fail");
+        log_err(sa_log, "main", "init_sock fail");
         exit(-1);
     }
 
-    printf("listen port: %d listen_fd: %d", g_sz_run_arg.port, g_sz_run_arg.listen_fd);
+    log_debug(sa_log, "main", "listen port: %d listen_fd: %d", g_sz_run_arg.port, g_sz_run_arg.listen_fd);
 
     register int i = 0;
     for(i = 0 ;i < __DOMAIN_NUM__; i++)
@@ -479,7 +513,7 @@ int main(int argc, char **argv)
         }
 
         if ( friso_init_from_ifile(friso_list[i], config_list[i], path) != 1 ) {
-            printf("fail to initialize friso and config.\n");
+            log_err(sa_log, "main", "fail to initialize friso and config.");
             goto err;
         }
 
@@ -497,16 +531,16 @@ int main(int argc, char **argv)
 
         e_time = clock();
 
-        printf("Initialized in %fsec\n", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
-        printf("Mode: %s\n", mode);
-        printf("+-Version: %s (%s)\n", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
+        log_debug(sa_log, "main", "Initialized in %fsec", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
+        log_debug(sa_log, "main", "Mode: %s", mode);
+        log_debug(sa_log, "main", "+-Version: %s (%s)", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
 
     }
 
     add_dict_to_arry("/root/dict/house/house_rex.txt", house_lex.class_rex);
-    printf("there %d arry in key_rex_arry\n", house_lex.class_rex->length);
+    log_debug(sa_log, "main", "there %d arry in key_rex_arry", house_lex.class_rex->length);
     add_dict_to_arry("/root/dict/house/house.txt", house_lex.class_single);
-    printf("there %d arry in key_rex_arry\n", house_lex.class_single->length);
+    log_debug(sa_log, "main", "there %d arry in key_rex_arry", house_lex.class_single->length);
     //print_key_items(key_rex_arry);
 
    while(run_flag){
@@ -522,7 +556,7 @@ int main(int argc, char **argv)
         {
             case -1:{ //出错
                 if (EINTR != errno){ //EINTR/EAGAIN/EWOULDBLOCK 这几个不能当作错误处理
-                    printf("select error:%s(errno:%d)", strerror(errno), errno);
+                    log_debug(sa_log, "main", "select error:%s(errno:%d)", strerror(errno), errno);
                 }
                 //run_flag = FALSE;
                 break;
@@ -537,14 +571,14 @@ int main(int argc, char **argv)
                 }
 
                 if ((client_sockfd = accept(g_sz_run_arg.listen_fd, NULL, NULL)) == -1) {
-                    printf("accept send client socket error:%s(errno:%d)", strerror(errno), errno);
+                    log_err(sa_log, "main", "accept send client socket error:%s(errno:%d)", strerror(errno), errno);
                     break;
                 }
 
                 ppid = fork();
 
                 if (-1 == ppid){
-                    printf("fork error:%s(errno:%d)", strerror(errno), errno);
+                    log_err(sa_log, "main", "fork error:%s(errno:%d)", strerror(errno), errno);
                     //run_flag = FALSE;
                     break;
                 }
@@ -578,6 +612,6 @@ err:
     }      
 
     free_class_lex(&house_lex);
-
+    nlp_zlog_uninit(&sa_log);
     return 0;
 }

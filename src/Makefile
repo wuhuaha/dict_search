@@ -38,8 +38,8 @@ share: $(OBJECT)
 ##debug: $(SOURCE)
 ##    $(CC) $(CFLAGS) $(SOURCE) -o friso
 
-friso: fy-friso.o socket_server.o pinyin.o
-	$(CC) fy-friso.o socket_server.o pinyin.o  -o ./friso -L. -lfriso
+friso: fy-friso.o socket_server.o pinyin.o nlp_log.o
+	$(CC) fy-friso.o socket_server.o pinyin.o nlp_log.o  -o ./friso -L. -lfriso -lzlog
 
 fy-friso.o: friso_API.h friso.h fy-friso.c
 	$(CC) $(FFLAGS) -c fy-friso.c
@@ -76,6 +76,9 @@ socket_server.o: socket_server.c socket_server.h
 
 pinyin.o: pinyin.c pinyin.h
 	$(CC) $(FFLAGS) -c pinyin.c
+
+nlp_log.o: nlp_log.c nlp_log.h
+	$(CC) $(FFLAGS) -c nlp_log.c
 #clean all the object files.
 .PHONY: clean
 clean:
