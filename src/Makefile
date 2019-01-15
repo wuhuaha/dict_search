@@ -39,7 +39,7 @@ share: $(OBJECT)
 ##    $(CC) $(CFLAGS) $(SOURCE) -o friso
 
 friso: fy-friso.o socket_server.o pinyin.o nlp_log.o
-	$(CC) fy-friso.o socket_server.o pinyin.o nlp_log.o  -o ./friso -L. -lfriso -lzlog
+	$(C++) fy-friso.o socket_server.o pinyin.o nlp_log.o  -o ./friso -L. -lfriso -lzlog
 
 fy-friso.o: friso_API.h friso.h fy-friso.c
 	$(CC) $(FFLAGS) -c fy-friso.c

@@ -258,6 +258,58 @@ static void sig_handle( int num )
         }
     }  
 } 
+
+/**  
+* @Description:解析读取到的数据
+* @arg: [IN] 
+* @return 成功: 0 失败: -1
+*/
+static int  analy_buffer(char *buffer, char **class, char **word)
+{
+    register int i = 0;
+    *word = buffer;
+    *class = domain_name[0];
+
+    if( (buffer == NULL) || (*buffer == 0)){
+        log_err(sa_log, "main", "buffer is NULL!");
+        return -1;
+    }
+    if( strchr(buffer, '#') == NULL){
+        return 0;
+    }
+    while(buffer[i] != 0){
+        if(buffer[i] == '#'){
+            break;
+        }
+        i++;
+    }
+    buffer[i] = 0;
+    *class = buffer;
+    *word = buffer + i + 1;
+    return 0;
+}
+
+/**  
+* @Description:获取类型对应的编号
+* @arg: [IN] 
+* @return 成功: 对应的编号 失败: -1
+*/
+
+static int num_of_class(char *class)
+{
+    register int i = 0;
+    if( (class == NULL) || (*class == 0)){
+        log_err(sa_log, "main", "class is NULL!");
+        return -1;
+    }
+    for(; i < __DOMAIN_NUM__; i++){
+        if(strcmp(class, domain_name[i]) == 0){
+            return i;
+        }
+    }
+    return 0;
+}
+
 /**  
 * @Description:业务处理函数
 * @arg: [IN] 
@@ -268,60 +320,55 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
     
         friso_task_t task; 
         clock_t s_time, e_time;
-        char pinyin[4096] = {0};
-        char label[4096] = {0};
-        char word[4096] = {0};        
-        char send_buffer[1024];
-        char send_buffer_tmp[1024];
-        int idex = 0,j = 0, data_len = 0, similarity = 0; 
+        char read_buffer[4096],  send_buffer[4096];
+        //char send_buffer_tmp[4096];   
+        char pinyin[2048] = {0}, label[128] = {0};
+        register int j = 0; 
+        int data_len = 0, similarity = 0, idex = 0;
+        char *class, *word;
 
-        memset(word, 0, sizeof(word));
-        data_len = data_recv(client_sockfd, word, sizeof(word));
-        idex = atoi(word) < __DOMAIN_NUM__  ? atoi(word) : __DOMAIN_PUBLIC__;
-        log_debug(sa_log, "main", "domain:%d",idex);
+        //读取数据，并将其中的领域名及主要内容分析出
+        memset(read_buffer, 0, sizeof(read_buffer));
+        data_len = data_recv(client_sockfd, read_buffer, sizeof(read_buffer));
+        log_debug(sa_log, "main", "read_buffer:%s, data_len:%d", read_buffer, data_len);
+        analy_buffer(read_buffer, &class, &word);
+        idex = num_of_class(class);
+        log_debug(sa_log, "main", "domain:%s, idex:%d, domain_name:%s", class, idex, domain_name[idex]);
+        log_info(sa_log, class, "word:%s",word);
+
+        //根据领域，选取相应的firso结构
         friso_t friso  = friso_list[idex]; 
         friso_config_t config = config_list[idex];
-        char * class = domain_name[idex];
+ 
+        //set the task.
+        task = friso_new_task();
+        friso_set_text( task, word );
+        log_debug(sa_log, class, "分词结果:");
+        s_time = clock();
+        //snprintf(send_buffer, sizeof(send_buffer), "包含词:\n");
+        //data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
 
-        while(1)
-        {
-            idex = 0;
-            pinyin[0] = 0;
-            *label = 0;
-            memset(word, 0, sizeof(word));
-            data_len = data_recv(client_sockfd, word, sizeof(word));
-            if(data_len <= 0){
-                break;
-            }
-            log_info(sa_log, class, "word:%s",word);
-            //set the task.
-            task = friso_new_task();
-            friso_set_text( task, word );
-            log_debug(sa_log, class, "分词结果:");
-            s_time = clock();
-            snprintf(send_buffer, sizeof(send_buffer), "包含词:\n");
-            data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
-            while ( ( config->next_token( friso, config, task ) ) != NULL ) {
+        //分词主程序
+        while ( ( config->next_token( friso, config, task ) ) != NULL ) {
             //log_debug(sa_log, "main", "word:%s[%d, %d, %d] ", task->token->word, 
             //        task->token->offset, task->token->length, task->token->rlen );
                 //本次token结果
-                log_debug(sa_log, class, "result: word:%s, pinyin:%s, type:%s", task->token->word ,task->token->py, word_type[task->token->type]);
-                snprintf(send_buffer, sizeof(send_buffer),"%s", task->token->word);
-                //如果由对应的标签则进行打印
-                if(*task->token->label != 0){
-                   snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),"[%s]", task->token->label);
-                   strcat(send_buffer, send_buffer_tmp);
+            log_debug(sa_log, class, "result: word:%s, pinyin:%s, type:%s", task->token->word ,task->token->py, word_type[task->token->type]);
+            //snprintf(send_buffer, sizeof(send_buffer),"%s", task->token->word);
+            //如果由对应的标签则进行打印
+            if(*task->token->label != 0){
+                //snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),"[%s]", task->token->label);
+                //strcat(send_buffer, send_buffer_tmp);
                     //已经存在标签了则添加在尾部
-                    if(*label != 0)
-                        strcat(label, "|");
-                    strcat(label, task->token->label);    
-                }else{
+                if(*label != 0)
+                    strcat(label, "|");
+                strcat(label, task->token->label);    
+            }else{
                     //如果含有同义词，则查询同义词的标签
                     if(*task->token->syn != 0){      
                         //所有同义词             
                         //snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),"|%s", task->token->syn);
-                        //strcat(send_buffer, send_buffer_tmp);
-                    
+                        //strcat(send_buffer, send_buffer_tmp);                    
                         link_node_t node, next;
                         lex_entry_t entry;
                         j = 0;
@@ -329,8 +376,8 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
                             if(node->value != NULL){
                                 entry = (lex_entry_t)(node->value);
                                 if((entry->label != NULL)&&(strcmp(entry->label, "null") != 0)){
-                                    snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),"|%s[%s]", entry->word, entry->label);
-                                    strcat(send_buffer, send_buffer_tmp);
+                                    //snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),"|%s[%s]", entry->word, entry->label);
+                                    //strcat(send_buffer, send_buffer_tmp);
                                     if(*label != 0)
                                     strcat(label, "|");
                                     strcat(label, entry->label);
@@ -342,34 +389,35 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
                         }
                    
                     }
-                }
-                log_info(sa_log, class, "%s", send_buffer);
-                strcat(send_buffer, "\n");
-                data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
-                j = 0;
-                *task->token->label = 0;
-                //复制本token的拼音到尾部
-                while( task->token->py[j] != '\0'){
-                    pinyin[idex++] = task->token->py[j++];
-                }  
-                pinyin[idex++] = ',';      
             }
+            log_debug(sa_log, class, "%s", send_buffer);
+            //strcat(send_buffer, "\n");
+            //data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
+            j = 0;
+            *task->token->label = 0;
+            //复制本token的拼音到尾部
+            while( task->token->py[j] != '\0'){
+                pinyin[idex++] = task->token->py[j++];
+            }  
+            pinyin[idex++] = ',';      
+        }
 
-            //为了显示方便
-            data_send(client_sockfd, "\n", 2);
-            pinyin[--idex] = '\0'; 
 
-            //记录完整拼音
-            log_info(sa_log, class, "pinyin：%s",pinyin);
+         //为了显示方便
+        data_send(client_sockfd, "\n", 2);
+        pinyin[--idex] = '\0'; 
 
-            //如果在分词的同时已经得到了标签则直接输出
-            if(*label != 0){
-                snprintf(send_buffer, sizeof(send_buffer), "直接匹配标签：[%s]\n", label);
-                data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
-            }
-            //无标签则开始正则匹配
-            if(*label == 0)
-            {
+        //记录完整拼音
+        log_debug(sa_log, class, "pinyin：%s",pinyin);
+
+        //如果在分词的同时已经得到了标签则直接输出
+        if(*label != 0){
+            snprintf(send_buffer, sizeof(send_buffer), "直接匹配标签：[%s]\n", label);
+            data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
+        }
+        //无标签则开始正则匹配
+        if(*label == 0)
+        {
                 if((rex_string(word, class_lex->class_rex, &idex)) > 0){
                     key_entry* entry = *(class_lex->class_rex->items + idex);
                     snprintf(label, sizeof(label), "%s", entry->label);
@@ -378,10 +426,10 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
                 }else{
                     *label = 0;
                 }
-            }
+        }
             //依旧没有标签，进行拼音匹配
-            if(*label == 0)
-            {
+        if(*label == 0)
+        {
                 if((similarity = search_pinyin(pinyin, class_lex->class_single, &idex)))
                 {
                     key_entry* entry = *(class_lex->class_single->items + idex);
@@ -389,20 +437,19 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
                     snprintf(send_buffer, sizeof(send_buffer),"拼音匹配项：[%s], 拼音匹配标签：[%s], 匹配度：[%d], 匹配类型[%s]\n", entry->word, entry->label, similarity, (similarity == 100) ? "完全匹配" : ((similarity == 89) ? "分隔匹配" : ((similarity == 87) ? "发音类型匹配" : "非完全匹配")));
                     data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
                 }
-            }  
-            //匹配失败
-            if(*label == 0)
-            {                
+        }  
+        //匹配失败
+        if(*label == 0)
+        {                
                 snprintf(send_buffer, sizeof(send_buffer),"匹配失败\n");
                 data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
-            }
-            //记录结果
-            log_info(sa_log, class, "%s", send_buffer);
-            //计算用时                
-            e_time = clock();
-            log_debug(sa_log, "main", "Done, cost < %fsec", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
-            friso_free_task( task );
         }
+        //记录结果
+        log_info(sa_log, class, "%s", send_buffer);
+        //计算用时                
+        e_time = clock();
+        log_debug(sa_log, "main", "Done, cost < %fsec", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
+        friso_free_task( task );
         
         return 0;   
 }
