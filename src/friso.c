@@ -336,7 +336,7 @@ FRISO_API friso_token_t friso_new_token( void )
     token->pos = '\0';
     token->offset = -1;
     token->py[0] = 0;
-    token->label[0] = 0;
+    token->lable[0] = 0;
     memset(token->word, 0x00, __HITS_WORD_LENGTH__);
 
     return token;
@@ -1586,9 +1586,9 @@ FRISO_API friso_token_t next_mmseg_token(
                 snprintf(task->token->py, __HITS_PINYIN_LENGTH__, "%s", lex->py);
             }
             
-            if(lex->label != NULL){
-                //printf("label:%s\n",lex->label);
-                snprintf(task->token->label, __HITS_LABEL_LENGTH__, "%s", lex->label);
+            if(lex->lable != NULL){
+                //printf("lable:%s\n",lex->lable);
+                snprintf(task->token->lable, __HITS_lable_LENGTH__, "%s", lex->lable);
             }
             //printf("        拼音:%s\n",task->token->py);
             
@@ -1609,9 +1609,9 @@ FRISO_API friso_token_t next_mmseg_token(
                         entry_tmp = (lex_entry_t)(node->value);                        
                         if ( friso_dic_match(friso->dic, __LEX_CJK_WORDS__, entry_tmp->word) ) {
                             lex_tmp = friso_dic_get(friso->dic, __LEX_CJK_WORDS__, entry_tmp->word);
-                            if((lex_tmp->label != NULL) && (strcmp(lex_tmp->label,"null") != 0)){
-                                entry_tmp->label = lex_tmp->label;
-                                //printf("%s,label:%s\n", lex_tmp->word, lex_tmp->label);
+                            if((lex_tmp->lable != NULL) && (strcmp(lex_tmp->lable,"null") != 0)){
+                                entry_tmp->lable = lex_tmp->lable;
+                                //printf("%s,lable:%s\n", lex_tmp->word, lex_tmp->lable);
                             }
 
                         }

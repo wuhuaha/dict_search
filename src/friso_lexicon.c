@@ -44,7 +44,7 @@ __STATIC_API__ void default_fdic_callback( hash_entry_t e )
     //free the lex->word
     FRISO_FREE( lex->word ); 
     FRISO_FREE( lex->py );   
-    FRISO_FREE( lex->label );   
+    FRISO_FREE( lex->lable );   
     //free the lex->syn if it is not NULL
     if ( lex->syn != NULL ) {
         syn = lex->syn;
@@ -90,7 +90,7 @@ FRISO_API lex_entry_t new_lex_entry(
     e->syn    = syn;            //synoyum words array list.
     e->pos    = NULL;            //part of speech array list.
     e->py    = NULL; //set to NULL first.
-    e->label = NULL;
+    e->lable = NULL;
     e->fre    = fre;
     e->length = (uchar_t) length;    //length
     e->rlen   = (uchar_t) length;    //set to length by default.
@@ -117,7 +117,7 @@ FRISO_API void free_lex_entry_full( lex_entry_t e )
     //free the lex->word
     FRISO_FREE( e->word );
     FRISO_FREE( e->py );
-    FRISO_FREE( e->label );
+    FRISO_FREE( e->lable );
     //free the lex->syn if it is not NULL
     if ( e->syn != NULL ) {
         syn = e->syn;
@@ -220,23 +220,23 @@ FRISO_API void friso_dic_add_pinyin(
 }
 
 //添加标签
-FRISO_API void friso_dic_add_label( 
+FRISO_API void friso_dic_add_lable( 
         friso_dic_t dic,
         friso_lex_t lex,
         fstring word, 
-        fstring label ) 
+        fstring lable ) 
 {   
 	lex_entry_t old_entry = NULL;
-    if(label == NULL) return;
+    if(lable == NULL) return;
     if ( lex >= 0 && lex < __FRISO_LEXICON_LENGTH__ ) {
         old_entry = (lex_entry_t)hash_get_value(dic[lex], word);
 		if(old_entry != NULL){
-			if(old_entry->label == NULL){
-				old_entry->label = label;
-                //printf("add label:%s to word:%s\n", old_entry->label, old_entry->word);
+			if(old_entry->lable == NULL){
+				old_entry->lable = lable;
+                //printf("add lable:%s to word:%s\n", old_entry->lable, old_entry->word);
 			}
 		}else{
-        	printf("None this entry,so,did't add label");
+        	printf("None this entry,so,did't add lable");
 		}
     }
 }
@@ -355,7 +355,7 @@ FRISO_API void friso_dic_load(
     char _pbuffer[512];
     fstring _syn;
 	fstring _pinyin;
-    fstring _label;
+    fstring _lable;
     friso_array_t sywords;
     uint_t _fre;
 
@@ -424,10 +424,10 @@ FRISO_API void friso_dic_load(
 
 
 
-			//5. get the word label if it available.
-            _label = NULL;
+			//5. get the word lable if it available.
+            _lable = NULL;
             if ( string_split_next( &sse, _buffer ) != NULL ) {
-                _label = string_copy_heap( _buffer, strlen(_buffer) );
+                _lable = string_copy_heap( _buffer, strlen(_buffer) );
             }
             /**
              * Here:
@@ -469,10 +469,10 @@ FRISO_API void friso_dic_load(
                 friso_dic_add_pinyin( 
                     friso->dic, lex, _word, _pinyin);
             }
-             //add label    
-           if( (_label != NULL) && (strcmp(_label, "null") != 0) ){
-                friso_dic_add_label( 
-                    friso->dic, lex, _word, _label);
+             //add lable    
+           if( (_lable != NULL) && (strcmp(_lable, "null") != 0) ){
+                friso_dic_add_lable( 
+                    friso->dic, lex, _word, _lable);
             }
         } 
 

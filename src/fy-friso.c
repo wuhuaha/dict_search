@@ -54,22 +54,22 @@ break;
     println("+-----------------------------------------------------------+");
 
 char word_type[16][32] = {
-    "CJK_WORDS",
-    "CJK_UNITS",
-    "ECM_WORDS",
-    "CEM_WORDS",
-    "CN_LNAME",
-    "CN_SNAME",
-    "CN_DNAME1",
-    "CN_DNAME2",
-    "CN_LNA",
-    "STOPWORDS",
-    "ENPUN_WORDS",
-    "EN_WORDS",
-    "OTHER_WORDS",
-    "NCSYN_WORDS",
-    "PUNC_WORDS",
-    "UNKNOW_WORDS"
+    "CJK_WORDS",    //0
+    "CJK_UNITS",    //1
+    "ECM_WORDS",    //2
+    "CEM_WORDS",    //3
+    "CN_LNAME",     //4
+    "CN_SNAME",     //5
+    "CN_DNAME1",    //6
+    "CN_DNAME2",    //7
+    "CN_LNA",       //8
+    "STOPWORDS",    //9
+    "ENPUN_WORDS",  //10
+    "EN_WORDS",     //11
+    "OTHER_WORDS",  //12
+    "NCSYN_WORDS",  //13
+    "PUNC_WORDS",   //14
+    "UNKNOW_WORDS"  //15
 };
 
 zlog_category_t * sa_log = NULL;
@@ -114,7 +114,7 @@ int free_key_entry( key_entry *entry )
 {
     SAFE_FREE(entry->word)
     SAFE_FREE(entry->pinyin)
-    SAFE_FREE(entry->label)
+    SAFE_FREE(entry->lable)
     SAFE_FREE(entry)
     return 0;
 }
@@ -153,7 +153,7 @@ int print_key_items(friso_array_entry* items)
     for(i = 0; i < items->length; i++)
     {
         entry = *(items->items + i);
-        log_debug(sa_log, "main", "key[%d]\tword:%s\tlabel:%s\t", i, entry->word, entry->label);
+        log_debug(sa_log, "main", "key[%d]\tword:%s\tlable:%s\t", i, entry->word, entry->lable);
         for(j = 0; j < entry->word_list->length; j++)
             log_debug(sa_log, "main", "——word_list[%d]:%s——", j, (char *)(*(entry->word_list->items + j)));
         log_debug(sa_log, "main", "");
@@ -321,11 +321,12 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
         friso_task_t task; 
         clock_t s_time, e_time;
         char read_buffer[4096],  send_buffer[4096];
-        //char send_buffer_tmp[4096];   
-        char pinyin[2048] = {0}, label[128] = {0};
-        register int j = 0; 
+        char send_buffer_tmp[4096], detail[4096];   
+        char pinyin[2048] = {0}, lable[128] = {0};
+        register int j = 0, k = 0; 
         int data_len = 0, similarity = 0, idex = 0;
-        char *class, *word;
+        char *class, *word, *word_lable;
+        *send_buffer = *send_buffer_tmp = *detail = 0;
 
         //读取数据，并将其中的领域名及主要内容分析出
         memset(read_buffer, 0, sizeof(read_buffer));
@@ -339,107 +340,125 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
         //根据领域，选取相应的firso结构
         friso_t friso  = friso_list[idex]; 
         friso_config_t config = config_list[idex];
- 
         //set the task.
         task = friso_new_task();
         friso_set_text( task, word );
-        log_debug(sa_log, class, "分词结果:");
         s_time = clock();
-        //snprintf(send_buffer, sizeof(send_buffer), "包含词:\n");
-        //data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
 
         //分词主程序
         while ( ( config->next_token( friso, config, task ) ) != NULL ) {
             //log_debug(sa_log, "main", "word:%s[%d, %d, %d] ", task->token->word, 
             //        task->token->offset, task->token->length, task->token->rlen );
-                //本次token结果
+            //本次token结果
+            if(task->token->type >= 9){
+                log_debug(sa_log, class, "result: word:%s, pinyin:%s, type:%s", task->token->word ,task->token->py, word_type[task->token->type]);
+                log_debug(sa_log, class, "不是汉字，跳过!");
+                continue;
+            }
+            word_lable = NULL;
             log_debug(sa_log, class, "result: word:%s, pinyin:%s, type:%s", task->token->word ,task->token->py, word_type[task->token->type]);
-            //snprintf(send_buffer, sizeof(send_buffer),"%s", task->token->word);
+            snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),"{\"word\":\"%s\",\"pinyin\":\"%s\"", task->token->word, task->token->py);
+            if(*detail == 0){
+                strcat(detail, "[");
+            }else{
+                strcat(detail, ",");
+            }
+            strcat(detail, send_buffer_tmp);
             //如果由对应的标签则进行打印
-            if(*task->token->label != 0){
-                //snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),"[%s]", task->token->label);
-                //strcat(send_buffer, send_buffer_tmp);
+            if(*task->token->lable != 0){
+                snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),",\"lable\":\"%s\"}", task->token->lable);
+                strcat(detail, send_buffer_tmp);
                     //已经存在标签了则添加在尾部
-                if(*label != 0)
-                    strcat(label, "|");
-                strcat(label, task->token->label);    
+                if(*lable != 0)
+                    strcat(lable, "|");
+                strcat(lable, task->token->lable);    
             }else{
                     //如果含有同义词，则查询同义词的标签
                     if(*task->token->syn != 0){      
-                        //所有同义词             
-                        //snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),"|%s", task->token->syn);
-                        //strcat(send_buffer, send_buffer_tmp);                    
+                           
+                        //依次查询所有的同义词有没有标签                 
                         link_node_t node, next;
                         lex_entry_t entry;
                         j = 0;
                         for ( node = task->token->syn_list->head; node != NULL; ) {
                             if(node->value != NULL){
                                 entry = (lex_entry_t)(node->value);
-                                if((entry->label != NULL)&&(strcmp(entry->label, "null") != 0)){
-                                    //snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),"|%s[%s]", entry->word, entry->label);
-                                    //strcat(send_buffer, send_buffer_tmp);
-                                    if(*label != 0)
-                                    strcat(label, "|");
-                                    strcat(label, entry->label);
+                                if((entry->lable != NULL)&&(strcmp(entry->lable, "null") != 0)){
+                                    //单个词的
+                                    word_lable = entry->lable;
+                                    //将标签添加到整句的标签的尾部
+                                    if(*lable != 0)
+                                        strcat(lable, "|");
+                                    strcat(lable, entry->lable);
                                     break;
                                 }
                             }  
                             next = node->next;
                             node = next;
                         }
+                        if(word_lable == NULL){
+                            //所有同义词             
+                            snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),",\"syn\":\"%s\"}", task->token->syn);
+                            strcat(detail, send_buffer_tmp);
+                        }else{
+                            //查询到同义词有标签的话，输出同义词及其标签
+                            snprintf(send_buffer_tmp, sizeof(send_buffer_tmp),",\"syn\":\"%s\",\"lable\":\"%s\"}", task->token->syn, entry->lable);
+                            strcat(detail, send_buffer_tmp);
+                        }
                    
+                    }else{
+                        strcat(detail, "}");//既没有同义词也没有标签
                     }
             }
-            log_debug(sa_log, class, "%s", send_buffer);
-            //strcat(send_buffer, "\n");
-            //data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
+            
             j = 0;
-            *task->token->label = 0;
+            *task->token->lable = 0;
             //复制本token的拼音到尾部
             while( task->token->py[j] != '\0'){
-                pinyin[idex++] = task->token->py[j++];
+                pinyin[k++] = task->token->py[j++];
             }  
-            pinyin[idex++] = ',';      
+            pinyin[k++] = ',';      
         }
-
-
-         //为了显示方便
-        data_send(client_sockfd, "\n", 2);
-        pinyin[--idex] = '\0'; 
-
+        pinyin[--k] = '\0'; 
+        strcat(detail, "]");
         //记录完整拼音
         log_debug(sa_log, class, "pinyin：%s",pinyin);
+        log_debug(sa_log, class, "%s", detail);
+
+        //data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
 
         //如果在分词的同时已经得到了标签则直接输出
-        if(*label != 0){
-            snprintf(send_buffer, sizeof(send_buffer), "直接匹配标签：[%s]\n", label);
+        if(*lable != 0){
+            snprintf(send_buffer, sizeof(send_buffer), "{\"lable\":\"%s\",\"similarity\":\"%d\",\"lable_type_alias\":\"直接匹配\",\"detail\":%s}", lable, 100, detail);
             data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
         }
         //无标签则开始正则匹配
-        if(*label == 0)
+        if(*lable == 0)
         {
                 if((rex_string(word, class_lex->class_rex, &idex)) > 0){
                     key_entry* entry = *(class_lex->class_rex->items + idex);
-                    snprintf(label, sizeof(label), "%s", entry->label);
-                    snprintf(send_buffer, sizeof(send_buffer),"正则匹配项：[%s], 正则匹配标签：[%s]\n", entry->word, entry->label);
+                    snprintf(lable, sizeof(lable), "%s", entry->lable);
+                    snprintf(send_buffer, sizeof(send_buffer), "{\"lable\":\"%s\",\"similarity\":\"%d\",\"lable_type_alias\":\"正则匹配\",\"detail\":%s}", lable, 100, detail);
+                    //snprintf(send_buffer, sizeof(send_buffer),"正则匹配项：[%s], 正则匹配标签：[%s]\n", entry->word, entry->lable);
                     data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
                 }else{
-                    *label = 0;
+                    *lable = 0;
                 }
         }
             //依旧没有标签，进行拼音匹配
-        if(*label == 0)
+        if(*lable == 0)
         {
                 if((similarity = search_pinyin(pinyin, class_lex->class_single, &idex)))
                 {
                     key_entry* entry = *(class_lex->class_single->items + idex);
-                    snprintf(label, sizeof(label), "%s", entry->label);
-                    snprintf(send_buffer, sizeof(send_buffer),"拼音匹配项：[%s], 拼音匹配标签：[%s], 匹配度：[%d], 匹配类型[%s]\n", entry->word, entry->label, similarity, (similarity == 100) ? "完全匹配" : ((similarity == 89) ? "分隔匹配" : ((similarity == 87) ? "发音类型匹配" : "非完全匹配")));
+                    snprintf(lable, sizeof(lable), "%s", entry->lable);
+                    snprintf(send_buffer, sizeof(send_buffer), "{\"lable\":\"%s\",\"similarity\":\"%d\",\"lable_type_alias\":\"拼音匹配(%s)\",\"detail\":%s}", lable, similarity, (similarity == 100) ? "完全匹配" : ((similarity == 89) ? "分隔匹配" : ((similarity == 87) ? "发音类型匹配" : "非完全匹配")), detail);
+                    //snprintf(send_buffer, sizeof(send_buffer),"拼音匹配项：[%s], 拼音匹配标签：[%s], 匹配度：[%d], 匹配类型[%s]\n", entry->word, entry->lable, similarity, (similarity == 100) ? "完全匹配" : ((similarity == 89) ? "分隔匹配" : ((similarity == 87) ? "发音类型匹配" : "非完全匹配")));
                     data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1); 
                 }
         }  
         //匹配失败
-        if(*label == 0)
+        if(*lable == 0)
         {                
                 snprintf(send_buffer, sizeof(send_buffer),"匹配失败\n");
                 data_send(client_sockfd, send_buffer, strlen(send_buffer) + 1);
@@ -491,8 +510,8 @@ int add_dict_to_arry(char *file_path,friso_array_entry *items)
         }
         string_split_next( &sse, buffer );
         if ( strcmp(buffer, "null") != 0 ) {
-            entry_test->label = string_copy_heap(buffer, strlen(buffer));
-            //log_debug(sa_log, "main", "label:%s",entry_test->label);
+            entry_test->lable = string_copy_heap(buffer, strlen(buffer));
+            //log_debug(sa_log, "main", "lable:%s",entry_test->lable);
         }
         entry_test->word_list = new_array_list_with_opacity(2);
         string_split_reset( &sse, "*", entry_test->word);

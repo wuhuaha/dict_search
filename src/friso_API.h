@@ -173,7 +173,7 @@ typedef friso_array_entry * friso_array_t;
 typedef struct {
     fstring word;//词内容
     fstring pinyin;//词拼音
-    fstring label; //标签
+    fstring lable; //标签
     friso_array_t word_list;
 } key_entry;
 
