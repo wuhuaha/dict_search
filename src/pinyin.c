@@ -86,7 +86,7 @@ int py_to_code(char *py, char *code, char *class_code)
 }
 
 //word:待匹配语句拼音  key:关键词拼音
-int compute_edit_distance(char*  word, char*  key)
+int compute_edit_distance(char*  word, char*  key, int* place)
 {
     int similarity, mini_tmp, mini_distance, py_add, py_delete, py_change;
     int len1 = strlen(word);
@@ -133,10 +133,12 @@ int compute_edit_distance(char*  word, char*  key)
     }
     for(i = 0; i <= len1; ++i){
         //printf("%d|",matrix[i][len2]);
-        if(matrix[i][len2] < mini_distance)
+        if(matrix[i][len2] < mini_distance){
             mini_distance = matrix[i][len2];
+            *place = i;
+        }
     }
-    if(mini_distance == 1){
+    if((mini_distance == 1) && (len2 > 3)){
         similarity = 90;
     }else{
         similarity = (len2 - mini_distance) * 100 / len2;
@@ -154,11 +156,12 @@ int  compute_code_edit_distance(char*  word, char*  key)
         return 0;
     }
     int similarity = 0;
+    int place = 0;
     char code_word[256] = "", code_key[64] = "", single_word[256] = "", single_key[64] = "";
     py_to_code(word, code_word, single_word);
     py_to_code(key, code_key, single_key);
     //printf("code_word:%s\tcode_key:%s\n", code_word, code_key);
-    similarity =  compute_edit_distance(code_word, code_key);
+    similarity =  compute_edit_distance(code_word, code_key, &place);
     //similarity =  compute_edit_distance(word, key);
     printf("distance of %s[%s] and %s[%s] is :%d\n", word, code_word, key, code_key, similarity);
     return similarity;
@@ -188,11 +191,12 @@ int remove_spec_tone(fstring const src, fstring result)
 *并将结果所在的元素位数存到result中
 * 成功：返回相似度；失败：返回0
 */
-int search_pinyin(fstring py, friso_array_t key_list, int* result)
+int search_pinyin(fstring py, friso_array_t key_list, int* result, char *word)
 {
     register int i = 0;
     register int similarity = -1, sim_tmp, class_sim_tmp, sim_idex = 0;
     register key_entry* entry;
+    int place = 0;
     char code_word[256] = "", code_entry[64] = "", class_word[256] = "", class_entry[64] = "", tone_word[256] = "", tone_entry[64] = "";
     if((strlen(py) >= 255) || (py == NULL) || (key_list == NULL) || (result == NULL) || (*py == 0)){
         printf("search pinyin input error\n");
@@ -213,7 +217,7 @@ int search_pinyin(fstring py, friso_array_t key_list, int* result)
             return similarity;
         }
         py_to_code(entry->pinyin, code_entry, class_entry);
-        if((sim_tmp =  compute_edit_distance(code_word, code_entry)) == 100)
+        if((sim_tmp =  compute_edit_distance(code_word, code_entry, &place)) == 100)
         {
             similarity = 100;
             printf("完全匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
@@ -222,22 +226,24 @@ int search_pinyin(fstring py, friso_array_t key_list, int* result)
         }else{
             printf("similarity of  %s is %d\n", entry->word, sim_tmp);
         }
-        if((class_sim_tmp =  compute_edit_distance(class_word, class_entry)) == 100)
-        {
-            if(sim_tmp < 83){
-                sim_tmp = 83;
-                printf("读音类型匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
-                *result = i;
+        // if((class_sim_tmp =  compute_edit_distance(class_word, class_entry, &place)) == 100)
+        // {
+        //     if(sim_tmp < 83){
+        //         sim_tmp = 83;
+        //         printf("读音类型匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
+        //         *result = i;
+        //     }
+        // }
+        if(sim_tmp > 80){//小于70肯定不匹配就没必要再去进行去一声匹配了
+            remove_spec_tone(code_entry, tone_entry);
+            if((class_sim_tmp =  compute_edit_distance(tone_word, tone_entry, &place)) == 100)
+            {
+                if(sim_tmp < 81){
+                    sim_tmp = 81;
+                    printf("去一声匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
+                    *result = i;
+                }            
             }
-        }
-        remove_spec_tone(code_entry, tone_entry);
-         if((class_sim_tmp =  compute_edit_distance(tone_word, tone_entry)) == 100)
-        {
-            if(sim_tmp < 81){
-                sim_tmp = 81;
-                printf("去一声匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
-                *result = i;
-            }            
         }
         if(sim_tmp > similarity){
             similarity = sim_tmp;
@@ -245,7 +251,108 @@ int search_pinyin(fstring py, friso_array_t key_list, int* result)
             //printf("目前匹配度最高为：%d\n",similarity);
         }
     }
-    if(similarity > 80){
+    if(similarity >= 90){
+        entry = *(key_list->items + sim_idex);
+        printf("非完全匹配，结果%s, 标签：%s, 匹配度：%d\n", entry->word, entry->lable, similarity);
+        *result = sim_idex;
+        return similarity;
+    }
+    printf("length:%d\n",key_list->length);
+    return 0;
+}
+
+/*
+*在key_list中搜索py中含有的与其元素匹配度最高的成员，搜索成功则返回匹配度
+*并将结果所在的元素位数存到result中
+* 成功：返回相似度；失败：返回0
+*/
+int search_pinyin_rex(fstring py, friso_array_t key_list, int* result, char *word)
+{
+    register int i = 0, j = 0, len = 0;
+    register int similarity = -1, sim_tmp, sim_arry_tmp, class_sim_tmp, sim_idex = 0;
+    register key_entry* entry;
+    char *tmp = NULL;
+    int place = 0, place_tmp = 0;
+    char code_word[256] = "", code_entry[64] = "", class_word[256] = "", class_entry[64] = "", tone_word[256] = "", tone_entry[64] = "";
+    if((strlen(py) >= 255) || (py == NULL) || (key_list == NULL) || (result == NULL) || (*py == 0)){
+        printf("search pinyin input error\n");
+        return 0;
+    }
+    py_to_code(py, code_word, class_word);
+    printf("py:%s,py_code:%s,class_code:%s\n",py, code_word, class_word);
+    remove_spec_tone(code_word, tone_word);
+    for(i = 0; i < key_list->length; i++)
+    {
+        //计算code编辑距离
+        entry = *(key_list->items + i); 
+        sim_tmp = 0;
+
+        for(j = 0; j < entry->py_list->length; j++)
+        {
+            tmp = (char *)(*(entry->py_list->items + j));
+            sim_arry_tmp = 0;
+
+            len = strlen(tmp);
+            if( (tmp[len - 1] > '9') || (tmp[len - 1] < '0') || (tmp[0] > 'z')  || (tmp[0] < 'A') )
+            {
+                printf("%s不是拼音\n",tmp);
+                if(strstr(word, tmp) == NULL){
+                    sim_tmp = 0;
+                    break;
+                }else{
+                    sim_arry_tmp = 100;    
+                }
+            }
+            if((strstr(py, tmp)) != NULL) //直接包含
+            {
+                sim_arry_tmp = 100;
+                place_tmp = strstr(py, tmp) - py;
+                //printf("包含匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
+            }
+            if(sim_arry_tmp != 100){
+                py_to_code(tmp, code_entry, class_entry);
+                if((sim_arry_tmp =  compute_edit_distance(code_word, code_entry, &place_tmp)) == 100)
+                {
+                    //printf("完全匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
+                }else{
+                    printf("similarity of  %s is %d\n", tmp, sim_arry_tmp);
+                }    
+            }   
+            if((sim_arry_tmp < 100) && (sim_arry_tmp > 80)){
+                remove_spec_tone(code_entry, tone_entry);
+                if((class_sim_tmp =  compute_edit_distance(tone_word, tone_entry, &place_tmp)) == 100)
+                {
+                    if(sim_arry_tmp < 81){
+                        sim_arry_tmp = 81;
+                        printf("去一声匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
+                    }            
+                }
+            }
+            if(sim_arry_tmp < 90){//任何一部分小于80都认为总体匹配失败，不再进行其他部分的匹配
+                sim_tmp = 0;
+                break;
+            }
+            sim_tmp += sim_arry_tmp;
+            if((place_tmp == place)){
+                sim_tmp = 0;
+                break;
+            }
+            place = place_tmp;
+        }
+
+        if(sim_tmp == 0){
+            continue;//匹配失败
+        }else{
+            sim_tmp = sim_tmp/entry->py_list->length;
+        }
+
+        if(sim_tmp > similarity){
+            similarity = sim_tmp;
+            sim_idex = i;
+            //printf("目前匹配度最高为：%d\n",similarity);
+        }
+    }
+    if(similarity >= 90){
         entry = *(key_list->items + sim_idex);
         printf("非完全匹配，结果%s, 标签：%s, 匹配度：%d\n", entry->word, entry->lable, similarity);
         *result = sim_idex;

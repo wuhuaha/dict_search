@@ -320,8 +320,8 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
     
         friso_task_t task; 
         clock_t s_time, e_time;
-        char read_buffer[4096],  send_buffer[4096];
-        char send_buffer_tmp[4096], detail[4096];   
+        char read_buffer[8192],  send_buffer[8192];
+        char send_buffer_tmp[8192], detail[8192];   
         char pinyin[2048] = {0}, lable[128] = {0};
         register int j = 0, k = 0; 
         int data_len = 0, similarity = 0, idex = 0, confidence = 0;
@@ -348,8 +348,8 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
         //分词主程序
         while ( ( config->next_token( friso, config, task ) ) != NULL ) {
             //本次token结果
-            //log_debug(sa_log, "main", "word:%s[%d, %d, %d] ", task->token->word, 
-            //        task->token->offset, task->token->length, task->token->rlen );
+           //printf("word:%s[%d, %d, %d] syn:%s", task->token->word, 
+           //         task->token->offset, task->token->length, task->token->rlen, task->token->syn);
             if(task->token->type >= 9){
                 log_debug(sa_log, class, "result: word:%s, pinyin:%s, type:%s", task->token->word ,task->token->py, word_type[task->token->type]);
                 log_debug(sa_log, class, "不是汉字，跳过!");
@@ -435,18 +435,46 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
                 }
         }
 
-        if(*lable == 0) //因为拼音匹配比较消耗资源，依旧没有标签，才进行拼音匹配
+        //if(*lable == 0) //因为拼音匹配比较消耗资源，依旧没有标签，才进行拼音匹配
+        if(1) //调试阶段，必然进行拼音匹配吧
         {
-                if((similarity = search_pinyin(pinyin, class_lex->class_single, &idex)))
+                if((similarity = search_pinyin(pinyin, class_lex->class_single, &idex, word)))
                 {
                     key_entry* entry = *(class_lex->class_single->items + idex);
-                    snprintf(lable, sizeof(lable), "%s", entry->lable);
-                    confidence = (int)(similarity * 0.9);
-                    snprintf(send_buffer_tmp, sizeof(send_buffer_tmp), "%s", (similarity == 100) ? "完全匹配" : ((similarity == 89) ? "分隔匹配" : ((similarity == 87) ? "发音类型匹配" : "非完全匹配")) );
-                    snprintf(send_buffer, sizeof(send_buffer),",{\"lable\":\"%s\",\"confidence\":\"%d\",\"key_word\":\"%s\",\"lable_type_alias\":\"%s\"}", entry->lable, confidence, entry->word, send_buffer_tmp);
-                    strcat(detail, send_buffer);
+                    if(strstr(lable, entry->lable) == NULL){
+                        if(*lable != 0)
+                            strcat(lable, "|");
+                        strcat(lable, entry->lable);
+                        snprintf(send_buffer_tmp, sizeof(send_buffer_tmp), "%s", (similarity == 100) ? "拼音完全匹配" : ((similarity == 89) ? "拼音分隔匹配" : ((similarity == 87) ? "拼音发音类型匹配" : "拼音非完全匹配")) );
+                        similarity = (int)(similarity * 0.9);
+                        snprintf(send_buffer, sizeof(send_buffer),",{\"lable\":\"%s\",\"confidence\":\"%d\",\"key_word\":\"%s\",\"lable_type_alias\":\"%s\"}", entry->lable, similarity, entry->word, send_buffer_tmp);
+                        strcat(detail, send_buffer);
+                        if(confidence < similarity){
+                            confidence = similarity;
+                        }
+                    }
+                }
+                if((similarity = search_pinyin_rex(pinyin, class_lex->class_rex, &idex, word)))
+                {
+                    key_entry* entry = *(class_lex->class_rex->items + idex);
+                    if(strstr(lable, entry->lable) == NULL){
+                        if(*lable != 0)
+                            strcat(lable, "|");
+                        strcat(lable, entry->lable);
+                        snprintf(send_buffer_tmp, sizeof(send_buffer_tmp), "%s", (similarity == 100) ? "拼音完全匹配" : ((similarity == 89) ? "拼音分隔匹配" : ((similarity == 87) ? "拼音发音类型匹配" : "拼音非完全匹配")) );
+                        similarity = (int)(similarity * 0.8);
+                        snprintf(send_buffer, sizeof(send_buffer),",{\"lable\":\"%s\",\"confidence\":\"%d\",\"key_word\":\"%s\",\"lable_type_alias\":\"%s\"}", entry->lable, similarity, entry->word, send_buffer_tmp);
+                        strcat(detail, send_buffer);
+                        if(confidence < similarity){
+                            confidence = similarity;
+                        }
+                    }
                 }
         }  
+
+        //计算用时
+        e_time = clock();
+        //log_debug(sa_log, "main", "Done, cost < %fsec", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
 
         strcat(detail, "]");
         log_debug(sa_log, class, "%s", detail);
@@ -454,17 +482,14 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
         //匹配失败
         if(*lable == 0)
         {                
-                snprintf(send_buffer, sizeof(send_buffer),"匹配失败\n");
+                snprintf(send_buffer, sizeof(send_buffer), "{\"lable\":\"null\", \"confidence\":\"null\", \"cost_time\":\"%f\", \"detail\":%s}",( (double)(e_time - s_time) ) / CLOCKS_PER_SEC, detail);
                 data_send(client_sockfd, send_buffer, strlen(send_buffer));
         }else{            
-            snprintf(send_buffer, sizeof(send_buffer), "{\"lable\":\"%s\", \"confidence\":\"%d\", \"detail\":%s}", lable, confidence , detail);
+            snprintf(send_buffer, sizeof(send_buffer), "{\"lable\":\"%s\", \"confidence\":\"%d\", \"cost_time\":\"%f\", \"detail\":%s}", lable, confidence , ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC, detail);
             data_send(client_sockfd, send_buffer, strlen(send_buffer));
         }
         //记录结果
         log_info(sa_log, class, "%s", send_buffer);
-        //计算用时                
-        e_time = clock();
-        log_debug(sa_log, "main", "Done, cost < %fsec", ( (double)(e_time - s_time) ) / CLOCKS_PER_SEC );
         friso_free_task( task );
         
         return 0;   
@@ -516,6 +541,14 @@ int add_dict_to_arry(char *file_path,friso_array_entry *items)
         {
             fstring word = string_copy_heap(buffer, strlen(buffer));
             array_list_add(entry_test->word_list, word);
+            //log_debug(sa_log, "main", "%s",buffer);
+        } 
+        entry_test->py_list = new_array_list_with_opacity(2);
+        string_split_reset( &sse, ",*,", entry_test->pinyin);
+        while(string_split_next( &sse, buffer ) != NULL)
+        {
+            fstring word = string_copy_heap(buffer, strlen(buffer));
+            array_list_add(entry_test->py_list, word);
             //log_debug(sa_log, "main", "%s",buffer);
         } 
     }

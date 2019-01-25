@@ -21,7 +21,7 @@ typedef struct {
 }  pinyin_convert_code;
 
 //word:待匹配语句拼音  key:关键词拼音
-int compute_edit_distance(char*  word, char*  key);
+int compute_edit_distance(char*  word, char*  key, int* place);
 
 int  compute_code_edit_distance(char*  word, char*  key);
 
@@ -29,5 +29,7 @@ int py_entry_to_code(char *py, char *code, char *single);
 
 int py_to_code(char *py, char *code, char *single);
 
-int search_pinyin(fstring py, friso_array_t key_list, int* result);
+int search_pinyin(fstring py, friso_array_t key_list, int* result, char *word);
+
+int search_pinyin_rex(fstring py, friso_array_t key_list, int* result, char *word);
 #endif

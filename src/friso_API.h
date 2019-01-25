@@ -175,6 +175,7 @@ typedef struct {
     fstring pinyin;//词拼音
     fstring lable; //标签
     friso_array_t word_list;
+    friso_array_t py_list;
 } key_entry;
 
 typedef struct  {

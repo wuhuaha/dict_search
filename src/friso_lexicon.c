@@ -436,7 +436,7 @@ FRISO_API void friso_dic_load(
              */
             sywords = NULL;
             if ( config->add_syn && _syn != NULL ) {
-                string_split_reset( &sse, ",", _sbuffer );
+                string_split_reset( &sse, "|", _sbuffer );
                 sywords = new_array_list_with_opacity(5);
                 while ( string_split_next( &sse, _buffer ) != NULL ) {
                     if ( strlen(_buffer) > length ) continue;
