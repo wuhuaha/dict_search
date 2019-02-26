@@ -497,7 +497,6 @@ FRISO_API void friso_dic_load_by_sql(
 
     MYSQL * sql = config->mysql;
 	MYSQL_RES * mysqlResult = NULL;
-	MYSQL_FIELD * mysqlField = NULL;
 	MYSQL_ROW mysqlRow;
 	fstring _word;
     fstring _syn;
@@ -509,13 +508,13 @@ FRISO_API void friso_dic_load_by_sql(
 	char sql_query[512];
     char _buffer[512];
     char _pbuffer[512];
-	register int iNumRow = 0, iNumField = 0, i = 0;
+	register int iNumRow = 0;
 	string_split_entry sse;
 	
-	snprintf(sql_query, sizeof(sql_query),"SELECT word, syn, fre, pinyin, label FROM %s");
-	if (ret = mysql_query(sql, "SELECT * FROM directory"))
+	snprintf(sql_query, sizeof(sql_query),"SELECT word, syn, fre, pinyin, label FROM %s", lex_table);
+	if (ret = mysql_query(sql, sql_query))
 	{
-		fprintf("sql select error!error code:%d\n", ret);
+		printf("sql select error!error code:%d\n", ret);
 		return ;
   	}
 	
@@ -523,14 +522,14 @@ FRISO_API void friso_dic_load_by_sql(
 	
 	if (mysqlResult == NULL)
 	{
-		fprintf("sql select error!error code: %d:%s\n", mysql_errno(sql), mysql_error(sql));
+		printf("sql select error!error code: %d:%s\n", mysql_errno(sql), mysql_error(sql));
 		return ;
 	}
  
 	iNumField = mysql_num_fields(mysqlResult);
 	iNumRow = mysql_num_rows(mysqlResult);
  
-	fprintf("there are %d records in %s\n", iNumRow, lex_table);
+	printf("there are %d records in %s\n", iNumRow, lex_table);
 	 
 	while (mysqlRow = mysql_fetch_row(mysqlResult))
 	{
