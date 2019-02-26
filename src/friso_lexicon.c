@@ -484,149 +484,129 @@ FRISO_API void friso_dic_load(
  *
  * @param dic        friso dictionary instance (A hash array)
  * @param lex        the lexicon type
- * @param lex_file    the path of the lexicon file
+ * @param lex_table    the name of the lexicon table
  * @param length    the maximum length of the word item
  */
 FRISO_API void friso_dic_load_by_sql( 
         friso_t friso,
         friso_config_t config,
         friso_lex_t lex,
-        fstring lex_file,
+        fstring lex_table,
         uint_t length ) 
 {
 
-    FILE * _stream;
-    char __char[1024], _buffer[512];
-    fstring _line;
-    string_split_entry sse;
-
-    fstring _word;
-    char _sbuffer[512];
-    char _pbuffer[512];
+    MYSQL * sql = config->mysql;
+	MYSQL_RES * mysqlResult = NULL;
+	MYSQL_FIELD * mysqlField = NULL;
+	MYSQL_ROW mysqlRow;
+	fstring _word;
     fstring _syn;
 	fstring _pinyin;
     fstring _lable;
     friso_array_t sywords;
     uint_t _fre;
-
-    if ( ( _stream = fopen( lex_file, "rb" ) ) != NULL ) {
-        while ( ( _line = file_get_line( __char, _stream ) ) != NULL ) {
-            //clear up the notes
-            //make sure the length of the line is greater than 1.
-            //like the single '#' mark in stopwords dictionary.
-            if ( _line[0] == '#' && strlen(_line) > 1 ) continue;
-
-            //handle the stopwords.
-            if ( lex == __LEX_STOPWORDS__ ) {
-                //clean the chinese words that its length is greater than max length.
-                if ( ((int)_line[0]) < 0 && strlen( _line ) > length ) continue;
-                friso_dic_add( friso->dic, __LEX_STOPWORDS__, 
-                        string_copy_heap( _line, strlen(_line) ), NULL ); 
-                continue;
+	int ret = 0;
+	char sql_query[512];
+    char _buffer[512];
+    char _pbuffer[512];
+	register int iNumRow = 0, iNumField = 0, i = 0;
+	string_split_entry sse;
+	
+	snprintf(sql_query, sizeof(sql_query),"SELECT word, syn, fre, pinyin, label FROM %s");
+	if (ret = mysql_query(sql, "SELECT * FROM directory"))
+	{
+		fprintf("sql select error!error code:%d\n", ret);
+		return ;
+  	}
+	
+	mysqlResult = mysql_store_result(sql);
+	
+	if (mysqlResult == NULL)
+	{
+		fprintf("sql select error!error code: %d:%s\n", mysql_errno(sql), mysql_error(sql));
+		return ;
+	}
+ 
+	iNumField = mysql_num_fields(mysqlResult);
+	iNumRow = mysql_num_rows(mysqlResult);
+ 
+	fprintf("there are %d records in %s\n", iNumRow, lex_table);
+	 
+	while (mysqlRow = mysql_fetch_row(mysqlResult))
+	{
+		//word
+		_word = string_copy_heap( mysqlRow[0], strlen(mysqlRow[0]));
+		//friso_dic_add( friso->dic, lex, _word, NULL ); 
+		//syn
+		if(mysqlRow[1] != NULL){
+			_syn = string_copy_heap( mysqlRow[1], strlen(mysqlRow[1]));
+		}else{
+			_syn = NULL;
+		}
+		//fre
+		if(mysqlRow[2] != NULL){
+			_fre = atoi(mysqlRow[2]);
+		}else{
+			_fre = 0;
+		}
+		//pinyin,单个字的读音只取第一个
+		if(mysqlRow[3] != NULL){
+			if(get_utf8_bytes(_word[0]) == strlen(_word)){
+                string_split_reset( &sse, ",", mysqlRow[3] );
+				_pinyin = NULL;
+				if ( string_split_next( &sse, _pbuffer ) != NULL ) {
+               		_pinyin = string_copy_heap( _pbuffer, strlen(_pbuffer) );
+            	}else{
+            		_pinyin = string_copy_heap( mysqlRow[3], strlen(mysqlRow[3]));
+            	}
+            }else{
+               _pinyin = string_copy_heap( mysqlRow[3], strlen(mysqlRow[3]));
             }
+		}else{
+			_pinyin = NULL;
+		}
+		//label	
+		if(mysqlRow[4] != NULL){
+			_lable = string_copy_heap( mysqlRow[4], strlen(mysqlRow[4]));
+		}else{
+			_lable = NULL;
+		}
 
-            //split the fstring with '/'.
-            string_split_reset( &sse, "/", _line); 
-            if ( string_split_next( &sse, _buffer ) == NULL ) {
-                continue;
-            }
-
-            //1. get the word.
-            _word = string_copy_heap( _buffer, strlen(_buffer) );
-
-            if ( string_split_next( &sse, _buffer ) == NULL ) {
-                //normal lexicon type, 
-                //add them to the dictionary directly
-                friso_dic_add( friso->dic, lex, _word, NULL ); 
-                continue;
-            }
-
-            /*
-             * filter out the words that its length is larger
-             *     than the specified limit.
-             * but not for __LEX_ECM_WORDS__ and english __LEX_STOPWORDS__
-             *     and __LEX_CEM_WORDS__.
-             */
-            if ( ! ( lex == __LEX_ECM_WORDS__ || lex == __LEX_CEM_WORDS__ )
-                    && strlen( _word ) > length ) {
-                FRISO_FREE(_word);
-                continue;
-            }
-
-            //2. get the synonyms words.
-            _syn = NULL;
-            if ( strcmp( _buffer, "null" ) != 0 ) {
-                _syn = string_copy( _buffer, _sbuffer, strlen(_buffer) );
-            }
-
-            //3. get the word frequency if it available.
-            _fre = 0;
-            if ( string_split_next( &sse, _buffer ) != NULL ) {
-                _fre = atoi( _buffer );
-            }
-
-			//4. get the word pinyin if it available.
-            _pinyin = NULL;
-            if ( string_split_next( &sse, _buffer ) != NULL ) {
-                _pinyin = string_copy( _buffer, _pbuffer, strlen(_buffer) );
-            }
-
-			//5. get the word lable if it available.
-            _lable = NULL;
-            if ( string_split_next( &sse, _buffer ) != NULL ) {
-                _lable = string_copy_heap( _buffer, strlen(_buffer) );
-            }
-            /**
-             * Here:
-             * split the synonyms words with mark "," 
-             *     and put them in a array list if the synonyms is not NULL
-             */
-            sywords = NULL;
-            if ( config->add_syn && _syn != NULL ) {
-                string_split_reset( &sse, "|", _sbuffer );
-                sywords = new_array_list_with_opacity(5);
-                while ( string_split_next( &sse, _buffer ) != NULL ) {
-                    if ( strlen(_buffer) > length ) continue;
+		/**
+         * Here:
+         * split the synonyms words with mark "|" 
+         *     and put them in a array list if the synonyms is not NULL
+         */
+         sywords = NULL;
+         if ( config->add_syn && _syn != NULL ) {
+            string_split_reset( &sse, "|", _syn );
+            sywords = new_array_list_with_opacity(5);
+            while ( string_split_next( &sse, _buffer ) != NULL ) {
+               if ( strlen(_buffer) > length ) continue;
                     array_list_add( sywords, 
                             string_copy_heap(_buffer, strlen(_buffer)) );
                 }
-                sywords = array_list_trim( sywords );
-            }
-            
-			//单个字转拼音，只取最常用的一个
-			if ( (_pinyin != NULL) && (strcmp(_pinyin, "null") != 0) ) {
-				if(get_utf8_bytes(_word[0]) == strlen(_word)){
-                	string_split_reset( &sse, ",", _pbuffer );
-					_pinyin = NULL;
-					if ( string_split_next( &sse, _pbuffer ) != NULL ) {
-                       _pinyin = string_copy_heap( _pbuffer, strlen(_pbuffer) );
-            		}
-                }else{
-                       _pinyin = string_copy_heap( _pbuffer, strlen(_pbuffer) );
-                }
-				//printf("pinyin of %s is %s\n", _word, _pinyin);
-            }
+           sywords = array_list_trim( sywords );
+         }           		
 
-            //4. add the word item
-            friso_dic_add_with_fre( 
-                    friso->dic, lex, _word, sywords, _fre );
-            //add pinyin    
-            if( (_pinyin != NULL) && (strcmp(_pinyin, "null") != 0) ) {
-                friso_dic_add_pinyin( 
+      	//add the word item
+      	friso_dic_add_with_fre( 
+       		friso->dic, lex, _word, sywords, _fre );
+      	//add pinyin    
+      	if( (_pinyin != NULL) && (strcmp(_pinyin, "null") != 0) ) {
+      		friso_dic_add_pinyin( 
                     friso->dic, lex, _word, _pinyin);
-            }
-             //add lable    
-           if( (_lable != NULL) && (strcmp(_lable, "null") != 0) ){
-                friso_dic_add_lable( 
+       	}
+        //add lable    
+      	if( (_lable != NULL) && (strcmp(_lable, "null") != 0) ){
+            friso_dic_add_lable( 
                     friso->dic, lex, _word, _lable);
-            }
-        } 
+      	}
+						
+	}
+	mysql_free_result(mysqlResult);
+	return;
 
-        fclose( _stream );
-    } else {
-        fprintf(stderr, "Warning: Fail to open lexicon file %s\n", lex_file);
-        fprintf(stderr, "Warning: Without lexicon file, segment results will not correct \n");
-    } 
 }
 
 

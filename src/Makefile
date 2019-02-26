@@ -17,6 +17,8 @@ FFLAGS = -O2 -Wall -fPIC
 #FFLAGS = -g -Wall -fPIC
 #extension libs for friso
 ELIB = m
+SQL_LIB = mysqlclient
+SQL_LIB_DIR = /usr/lib64/mysql
 LIB_FILE = libfriso.so
 STA_FILE = libfriso.a
 LIBRARY_DIR = /usr/lib
@@ -54,7 +56,7 @@ friso_hash.o: friso_hash.c friso_API.h
 	$(CC) $(FFLAGS) -c friso_hash.c
 
 friso_lexicon.o: friso_hash.c friso_lexicon.c friso_API.h friso.h
-	$(CC) $(FFLAGS) -c friso_lexicon.c
+	$(CC) $(FFLAGS) -c friso_lexicon.c -L $(SQL_LIB_DIR) -l$(SQL_LIB)
 
 friso_link.o: friso_link.c friso_API.h
 	$(CC) $(FFLAGS) -c friso_link.c
