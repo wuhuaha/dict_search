@@ -41,7 +41,7 @@ share: $(OBJECT)
 ##    $(CC) $(CFLAGS) $(SOURCE) -o friso
 
 friso: fy-friso.o socket_server.o pinyin.o nlp_log.o
-	$(C++) fy-friso.o socket_server.o pinyin.o nlp_log.o  -o ./friso -L. L $(SQL_LIB_DIR) -lfriso -lzlog -l$(SQL_LIB)
+	$(C++) fy-friso.o socket_server.o pinyin.o nlp_log.o  -o ./friso -L. -L $(SQL_LIB_DIR) -lfriso -lzlog -l$(SQL_LIB)
 
 fy-friso.o: friso_API.h friso.h fy-friso.c
 	$(CC) $(FFLAGS) -c fy-friso.c
