@@ -163,7 +163,7 @@ int  compute_code_edit_distance(char*  word, char*  key)
     //printf("code_word:%s\tcode_key:%s\n", code_word, code_key);
     similarity =  compute_edit_distance(code_word, code_key, &place);
     //similarity =  compute_edit_distance(word, key);
-    printf("distance of %s[%s] and %s[%s] is :%d\n", word, code_word, key, code_key, similarity);
+    //printf("distance of %s[%s] and %s[%s] is :%d\n", word, code_word, key, code_key, similarity);
     return similarity;
 }
 /*
@@ -203,7 +203,7 @@ int search_pinyin(fstring py, friso_array_t key_list, int* result, char *word)
         return 0;
     }
     py_to_code(py, code_word, class_word);
-    printf("py:%s,py_code:%s,class_code:%s\n",py, code_word, class_word);
+    //printf("py:%s,py_code:%s,class_code:%s\n",py, code_word, class_word);
     remove_spec_tone(code_word, tone_word);
     for(i = 0; i < key_list->length; i++)
     {
@@ -212,7 +212,7 @@ int search_pinyin(fstring py, friso_array_t key_list, int* result, char *word)
         if((strstr(py, entry->pinyin)) != NULL) //直接包含
         {
             similarity = 100;
-            printf("包含匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
+            //printf("包含匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
             *result = i;
             return similarity;
         }
@@ -220,11 +220,11 @@ int search_pinyin(fstring py, friso_array_t key_list, int* result, char *word)
         if((sim_tmp =  compute_edit_distance(code_word, code_entry, &place)) == 100)
         {
             similarity = 100;
-            printf("完全匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
+            //printf("完全匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
             *result = i;
             return similarity;
         }else{
-            printf("similarity of  %s is %d\n", entry->word, sim_tmp);
+            //printf("similarity of  %s is %d\n", entry->word, sim_tmp);
         }
         // if((class_sim_tmp =  compute_edit_distance(class_word, class_entry, &place)) == 100)
         // {
@@ -240,7 +240,7 @@ int search_pinyin(fstring py, friso_array_t key_list, int* result, char *word)
             {
                 if(sim_tmp < 81){
                     sim_tmp = 81;
-                    printf("去一声匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
+                    //printf("去一声匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
                     *result = i;
                 }            
             }
@@ -253,11 +253,11 @@ int search_pinyin(fstring py, friso_array_t key_list, int* result, char *word)
     }
     if(similarity >= 90){
         entry = *(key_list->items + sim_idex);
-        printf("非完全匹配，结果%s, 标签：%s, 匹配度：%d\n", entry->word, entry->lable, similarity);
+        //printf("非完全匹配，结果%s, 标签：%s, 匹配度：%d\n", entry->word, entry->lable, similarity);
         *result = sim_idex;
         return similarity;
     }
-    printf("length:%d\n",key_list->length);
+    //printf("length:%d\n",key_list->length);
     return 0;
 }
 
@@ -275,11 +275,11 @@ int search_pinyin_rex(fstring py, friso_array_t key_list, int* result, char *wor
     int place = 0, place_tmp = 0;
     char code_word[256] = "", code_entry[64] = "", class_word[256] = "", class_entry[64] = "", tone_word[256] = "", tone_entry[64] = "";
     if((strlen(py) >= 255) || (py == NULL) || (key_list == NULL) || (result == NULL) || (*py == 0)){
-        printf("search pinyin input error\n");
+        //printf("search pinyin input error\n");
         return 0;
     }
     py_to_code(py, code_word, class_word);
-    printf("py:%s,py_code:%s,class_code:%s\n",py, code_word, class_word);
+    //printf("py:%s,py_code:%s,class_code:%s\n",py, code_word, class_word);
     remove_spec_tone(code_word, tone_word);
     for(i = 0; i < key_list->length; i++)
     {
@@ -295,7 +295,7 @@ int search_pinyin_rex(fstring py, friso_array_t key_list, int* result, char *wor
             len = strlen(tmp);
             if( (tmp[len - 1] > '9') || (tmp[len - 1] < '0') || (tmp[0] > 'z')  || (tmp[0] < 'A') )
             {
-                printf("%s不是拼音\n",tmp);
+                //printf("%s不是拼音\n",tmp);
                 if(strstr(word, tmp) == NULL){
                     sim_tmp = 0;
                     break;
@@ -315,7 +315,7 @@ int search_pinyin_rex(fstring py, friso_array_t key_list, int* result, char *wor
                 {
                     //printf("完全匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
                 }else{
-                    printf("similarity of  %s is %d\n", tmp, sim_arry_tmp);
+                    //printf("similarity of  %s is %d\n", tmp, sim_arry_tmp);
                 }    
             }   
             if((sim_arry_tmp < 100) && (sim_arry_tmp > 80)){
@@ -324,7 +324,7 @@ int search_pinyin_rex(fstring py, friso_array_t key_list, int* result, char *wor
                 {
                     if(sim_arry_tmp < 81){
                         sim_arry_tmp = 81;
-                        printf("去一声匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
+                        //printf("去一声匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
                     }            
                 }
             }
@@ -354,10 +354,10 @@ int search_pinyin_rex(fstring py, friso_array_t key_list, int* result, char *wor
     }
     if(similarity >= 90){
         entry = *(key_list->items + sim_idex);
-        printf("非完全匹配，结果%s, 标签：%s, 匹配度：%d\n", entry->word, entry->lable, similarity);
+        //printf("非完全匹配，结果%s, 标签：%s, 匹配度：%d\n", entry->word, entry->lable, similarity);
         *result = sim_idex;
         return similarity;
     }
-    printf("length:%d\n",key_list->length);
+    //printf("length:%d\n",key_list->length);
     return 0;
 }

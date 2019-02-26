@@ -9,6 +9,7 @@
 
 #include "friso_API.h"
 #include <stdio.h>
+#include <mysql/mysql.h>
 
 /* {{{ friso main interface define :: start*/
 #define FRISO_VERSION "1.6.2"
@@ -170,7 +171,7 @@ struct friso_config_struct {
     ushort_t st_minl;            //min length of the secondary segmentation token.
     uint_t nthreshold;            //the threshold value for a char to make up a chinese name.
     friso_mode_t mode;            //Complex mode or simple mode
-
+    MYSQL *mysql ;
     //pointer to the function to get the next token
     friso_token_t (*next_token) (friso_t, struct friso_config_struct *, friso_task_t);
     //pointer to the function to get the next cjk lex_entry_t
