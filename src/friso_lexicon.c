@@ -526,7 +526,6 @@ FRISO_API void friso_dic_load_by_sql(
 		return ;
 	}
  
-	iNumField = mysql_num_fields(mysqlResult);
 	iNumRow = mysql_num_rows(mysqlResult);
  
 	printf("there are %d records in %s\n", iNumRow, lex_table);
