@@ -209,7 +209,9 @@ FRISO_API int friso_init_from_ifile(
 						if (mysql_select_db(config->mysql, config->mysql_config.mysql_database_name))
 						{
 							fprintf(stderr,">切换数据库失败!\n");
-  						}
+  						}else{
+							mysql_query(config->mysql, "set names 'utf8'");
+						}
 					}
 				}
 			}

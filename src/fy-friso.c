@@ -612,6 +612,23 @@ int main(int argc, char **argv)
             log_err(sa_log, "main", "fail to initialize friso and config.");
             goto err;
         }
+#if 1
+		if (ret = mysql_query(config_list[i]->mysql, "SELECT word, syn, fre, pinyin, label FROM house"))
+		{
+			fprintf(stderr, ">数据查询错误!错误代码:%d\n", ret);
+  		}
+		MYSQL_RES * mysqlResult = NULL;
+		MYSQL_ROW mysqlRow;
+		mysqlResult = mysql_store_result(config_list[i]->mysql);
+		if (mysqlResult == NULL)
+		{
+			fprintf(stderr, ">数据查询失败! %d:%s\n", mysql_errno(config_list[i]->mysql), mysql_error(config_list[i]->mysql));
+		}
+		while (mysqlRow = mysql_fetch_row(mysqlResult))
+		{
+			printf("%s\t", mysqlRow[0]);
+		}
+#endif				
 
         switch ( config_list[i]->mode ) {
         case __FRISO_SIMPLE_MODE__:
