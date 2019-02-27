@@ -156,7 +156,7 @@ typedef struct {
 	fstring mysql_host;
 	fstring mysql_user;
 	fstring mysql_pwd;
-	fstring mysql_port;
+	uint_t mysql_port;
 	fstring mysql_database_name;
 } friso_mysql_config_entry;
 typedef friso_mysql_config_entry * friso_mysql_config_t;
@@ -263,6 +263,9 @@ FRISO_API friso_task_t friso_new_task( void );
  * This function is used to free the allocation of function friso_new_segment();
  */
 FRISO_API void friso_free_task( friso_task_t );
+
+FRISO_API void free_mysql_config(friso_mysql_config_t );
+
 
 //create a new friso token
 FRISO_API friso_token_t friso_new_token( void );

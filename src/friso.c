@@ -132,7 +132,17 @@ FRISO_API int friso_init_from_ifile(
                 config->en_sseg = (ushort_t) atoi( __line__ );
             } else if ( strcmp( __key__, "friso.st_minl") == 0 ) {
                 config->st_minl = (ushort_t) atoi( __line__ );
-            } else if ( strcmp( __key__, "friso.kpuncs") == 0 ) {
+            } else if ( strcmp( __key__, "mysql_host") == 0 ) {
+                config->mysql_config.mysql_host = string_copy_heap(__line__ , strlen(__line__));
+            } else if ( strcmp( __key__, "mysql_port") == 0 ) {
+                config->mysql_config.mysql_port = atoi( __line__ );
+            } else if ( strcmp( __key__, "mysql_user") == 0 ) {
+                config->mysql_config.mysql_user = string_copy_heap(__line__ , strlen(__line__));
+            } else if ( strcmp( __key__, "mysql_pwd") == 0 ) {
+                config->mysql_config.mysql_pwd = string_copy_heap(__line__ , strlen(__line__));
+            } else if ( strcmp( __key__, "mysql_database_name") == 0 ) {
+                config->mysql_config.mysql_database_name = string_copy_heap(__line__ , strlen(__line__));
+            }else if ( strcmp( __key__, "friso.kpuncs") == 0 ) {
                 //t is the length of the __line__.
                 memcpy(config->kpuncs, __line__, t);
                 //printf("friso_init_from_ifile#kpuncs: %s\n", config->kpuncs);
@@ -176,8 +186,11 @@ FRISO_API int friso_init_from_ifile(
                 }
             }
 
-
-            friso->dic = friso_dic_new();
+			if(config->mysql_config.mysql_host != NULL){
+			printf("mysql config>>host:%s\tport:%d\tuser:%s\tpwd:%s\tdatabase_name:%S\n",
+					config->mysql_config.mysql_host, config->mysql_config.mysql_port, config->mysql_config.mysql_user, config->mysql_config.mysql_pwd, config->mysql_config.mysql_database_name);
+			}
+			friso->dic = friso_dic_new();
             //add charset check for max word length counting
             friso_dic_load_from_ifile( friso, config, 
                     lexpath, config->max_len * (friso->charset == FRISO_UTF8 ? 3 : 2) );
@@ -272,7 +285,7 @@ FRISO_API void friso_init_config( friso_config_t cfg )
 FRISO_API void free_mysql_config(friso_mysql_config_t cfg)
 {
 	FRISO_FREE(cfg->mysql_host);
-	FRISO_FREE(cfg->mysql_port);
+	//FRISO_FREE(cfg->mysql_port);
 	FRISO_FREE(cfg->mysql_user);
 	FRISO_FREE(cfg->mysql_pwd);
 	FRISO_FREE(cfg->mysql_database_name);
