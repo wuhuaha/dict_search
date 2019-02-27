@@ -615,6 +615,7 @@ int main(int argc, char **argv)
 #if 1
 	if(config_list[i]->mysql != NULL)
 	{
+		printf("[%d]\t", i);
 		if ((ret = mysql_query(config_list[i]->mysql, "show tables")))
 		{
 			fprintf(stderr, ">数据查询错误!错误代码:%d\n", ret);
@@ -630,6 +631,7 @@ int main(int argc, char **argv)
 		{
 			printf("%s\t", mysqlRow[0]);
 		}
+		printf("\n");
 	}
 #endif				
 
