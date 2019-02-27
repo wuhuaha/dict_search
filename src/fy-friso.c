@@ -613,18 +613,18 @@ int main(int argc, char **argv)
             goto err;
         }
 #if 1
-		if (ret = mysql_query(config_list[i]->mysql, "SELECT word, syn, fre, pinyin, label FROM house"))
+		if (ret = mysql_query(config_list[i]->mysql, "show tables"))
 		{
 			fprintf(stderr, ">数据查询错误!错误代码:%d\n", ret);
   		}
 		MYSQL_RES * mysqlResult = NULL;
 		MYSQL_ROW mysqlRow;
 		mysqlResult = mysql_store_result(config_list[i]->mysql);
-		if (mysqlResult == NULL)
+		if ((mysqlResult == NULL))
 		{
 			fprintf(stderr, ">数据查询失败! %d:%s\n", mysql_errno(config_list[i]->mysql), mysql_error(config_list[i]->mysql));
 		}
-		while (mysqlRow = mysql_fetch_row(mysqlResult))
+		while ((mysqlRow = mysql_fetch_row(mysqlResult)))
 		{
 			printf("%s\t", mysqlRow[0]);
 		}
