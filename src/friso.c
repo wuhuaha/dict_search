@@ -189,6 +189,29 @@ FRISO_API int friso_init_from_ifile(
 			if(config->mysql_config.mysql_host != NULL){
 				printf("mysql config>>host:%s\tport:%d\tuser:%s\tpwd:%s\tdatabase_name:%s\n",
 					config->mysql_config.mysql_host, config->mysql_config.mysql_port, config->mysql_config.mysql_user, config->mysql_config.mysql_pwd, config->mysql_config.mysql_database_name);
+				config->mysql = mysql_init(config->mysql);
+				if(!config->mysql){
+					fprintf(stderr, "init mysql error!");
+				}else{
+					if (!mysql_real_connect(mysql,       /* MYSQL structure to use */
+			  					config->mysql_config.mysql_host,  /* server hostname or IP address */ 
+			  					config->mysql_config.mysql_user,  /* mysql user */
+			  					config->mysql_config.mysql_pwd,   /* password */
+			  					NULL,        /* default database to use, NULL for none */
+			  					config->mysql_config.mysql_port,          /* port number, 0 for default */
+			  					NULL,        /* socket file or named pipe name */
+			  					CLIENT_FOUND_ROWS /* connection flags */ 
+   						)) 
+   					{
+   						fprintf(stderr, "open mysql error!");
+   					}else{
+						printf("Connection character set: %s\n", mysql_character_set_name(config->mysql));
+						if (mysql_select_db(mconfig->mysql, config->mysql_config.mysql_database_name))
+						{
+							fprintf(stderr,">切换数据库失败!\n");
+  						}
+					}
+				}
 			}
 			friso->dic = friso_dic_new();
             //add charset check for max word length counting
