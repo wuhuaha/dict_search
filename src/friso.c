@@ -269,6 +269,21 @@ FRISO_API void friso_init_config( friso_config_t cfg )
     memset(cfg->kpuncs, 0x00, sizeof(cfg->kpuncs));
 }
 /* }}} */
+FRISO_API void free_mysql_config(friso_mysql_config_t cfg)
+{
+	FRISO_FREE(cfg->mysql_host);
+	FRISO_FREE(cfg->mysql_port);
+	FRISO_FREE(cfg->mysql_user);
+	FRISO_FREE(cfg->mysql_pwd);
+	FRISO_FREE(cfg->mysql_database_name);
+}
+
+FRISO_API void friso_free_config( friso_config_t cfg )
+{
+	free_mysql_config(&(cfg->mysql_config));
+	mysql_close(cfg->mysql);
+	FRISO_FREE(cfg);
+}
 
 /* {{{ create a new segment task entry.
 */

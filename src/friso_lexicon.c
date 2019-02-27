@@ -512,7 +512,7 @@ FRISO_API void friso_dic_load_by_sql(
 	string_split_entry sse;
 	
 	snprintf(sql_query, sizeof(sql_query),"SELECT word, syn, fre, pinyin, label FROM %s", lex_table);
-	if (ret = mysql_query(sql, sql_query))
+	if ((ret = mysql_query(sql, sql_query)))
 	{
 		printf("sql select error!error code:%d\n", ret);
 		return ;
@@ -530,7 +530,7 @@ FRISO_API void friso_dic_load_by_sql(
  
 	printf("there are %d records in %s\n", iNumRow, lex_table);
 	 
-	while (mysqlRow = mysql_fetch_row(mysqlResult))
+	while ((mysqlRow = mysql_fetch_row(mysqlResult)))
 	{
 		//word
 		_word = string_copy_heap( mysqlRow[0], strlen(mysqlRow[0]));

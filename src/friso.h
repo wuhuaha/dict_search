@@ -151,7 +151,15 @@ typedef struct {
     char buffer[7];         //word buffer. (1-6 bytes for an utf-8 word in C).
 } friso_task_entry;
 typedef friso_task_entry * friso_task_t;
-
+/*mysql configuration entry*/
+typedef struct {
+	fstring mysql_host;
+	fstring mysql_user;
+	fstring mysql_pwd;
+	fstring mysql_port;
+	fstring mysql_database_name;
+} friso_mysql_config_entry;
+typedef friso_mysql_config_entry * friso_mysql_config_t;
 
 /* task configuration entry.*/
 #define _FRISO_KEEP_PUNC_LEN 13
@@ -171,6 +179,7 @@ struct friso_config_struct {
     ushort_t st_minl;            //min length of the secondary segmentation token.
     uint_t nthreshold;            //the threshold value for a char to make up a chinese name.
     friso_mode_t mode;            //Complex mode or simple mode
+    friso_mysql_config_entry mysql_config;
     MYSQL *mysql ;
     //pointer to the function to get the next token
     friso_token_t (*next_token) (friso_t, struct friso_config_struct *, friso_task_t);
@@ -235,7 +244,9 @@ FRISO_API void friso_init_config( friso_config_t );
 
 //free the specified friso configuration entry.
 //FRISO_API void friso_free_config( friso_config_t );
-#define friso_free_config(cfg) FRISO_FREE(cfg)
+//because of mysql added into config ,this function changed
+//#define friso_free_config(cfg) FRISO_FREE(cfg)
+FRISO_API void friso_free_config( friso_config_t );
 
 /*
  * Function: friso_new_task;
@@ -326,6 +337,21 @@ FRISO_API void free_lex_entry( lex_entry_t );
  */
 FRISO_API void friso_dic_load( friso_t, friso_config_t, 
         friso_lex_t, fstring, uint_t );
+
+/*
+ * Function: friso_dic_load_by_sql
+* Usage: friso_dic_load( friso, friso_lex_t, path, length ); 
+* --------------------------------------------------
+* This function is used to load dictionary from a given sql table.
+*		   no length limit when length less than 0.
+*/
+
+FRISO_API void friso_dic_load_by_sql( 
+				friso_t friso,
+				friso_config_t config,
+				friso_lex_t lex,
+				fstring lex_table,
+				uint_t length );
 
 /*
  * load the lexicon configuration file.
