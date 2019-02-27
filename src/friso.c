@@ -187,7 +187,7 @@ FRISO_API int friso_init_from_ifile(
             }
 
 			if(config->mysql_config.mysql_host != NULL){
-			printf("mysql config>>host:%s\tport:%d\tuser:%s\tpwd:%s\tdatabase_name:%S\n",
+				printf("mysql config>>host:%s\tport:%d\tuser:%s\tpwd:%s\tdatabase_name:%s\n",
 					config->mysql_config.mysql_host, config->mysql_config.mysql_port, config->mysql_config.mysql_user, config->mysql_config.mysql_pwd, config->mysql_config.mysql_database_name);
 			}
 			friso->dic = friso_dic_new();
