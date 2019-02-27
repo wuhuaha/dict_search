@@ -657,6 +657,10 @@ int main(int argc, char **argv)
         log_debug(sa_log, "main", "Initialized in %fsec", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
         log_debug(sa_log, "main", "Mode: %s", mode);
         log_debug(sa_log, "main", "+-Version: %s (%s)", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
+		
+		printf("Initialized in %fsec", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
+		printf("Mode: %s", mode);
+		printf("+-Version: %s (%s)", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
 
     }
 
