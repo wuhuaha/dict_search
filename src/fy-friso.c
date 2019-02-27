@@ -613,6 +613,8 @@ int main(int argc, char **argv)
             goto err;
         }
 
+		friso_dic_load_by_sql( friso_list[i], config_list[i], __LEX_CJK_WORDS__, "base", config_list[i]->max_len * (friso_list[i]->charset == FRISO_UTF8 ? 3 : 2));
+
 		switch ( config_list[i]->mode ) {
         case __FRISO_SIMPLE_MODE__:
             mode = "Simple";
