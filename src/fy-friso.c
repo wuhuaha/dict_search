@@ -612,6 +612,18 @@ int main(int argc, char **argv)
             log_err(sa_log, "main", "fail to initialize friso and config.");
             goto err;
         }
+
+		switch ( config_list[i]->mode ) {
+        case __FRISO_SIMPLE_MODE__:
+            mode = "Simple";
+            break;
+        case __FRISO_COMPLEX_MODE__:
+            mode = "Complex";
+            break;
+        case __FRISO_DETECT_MODE__:
+            mode = "Detect";
+            break;
+        }
 #if 1
 	if(config_list[i]->mysql != NULL)
 	{
@@ -628,24 +640,14 @@ int main(int argc, char **argv)
 			fprintf(stderr, ">数据查询失败! %d:%s\n", mysql_errno(config_list[i]->mysql), mysql_error(config_list[i]->mysql));
 		}
 		while ((mysqlRow = mysql_fetch_row(mysqlResult)))
-		{
-			printf("%s\t", mysqlRow[0]);
+		{			
+			if(strstr(mysqlRow[0], "domain_") == mysqlRow[0]){
+				printf("%s\t", mysqlRow[0] + 7);
+			}
 		}
 		printf("\n");
 	}
 #endif				
-
-        switch ( config_list[i]->mode ) {
-        case __FRISO_SIMPLE_MODE__:
-            mode = "Simple";
-            break;
-        case __FRISO_COMPLEX_MODE__:
-            mode = "Complex";
-            break;
-        case __FRISO_DETECT_MODE__:
-            mode = "Detect";
-            break;
-        }
 
         e_time = clock();
 
