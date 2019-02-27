@@ -193,7 +193,7 @@ FRISO_API int friso_init_from_ifile(
 				if(!config->mysql){
 					fprintf(stderr, "init mysql error!");
 				}else{
-					if (!mysql_real_connect(mysql,       /* MYSQL structure to use */
+					if (!mysql_real_connect(config->mysql,       /* MYSQL structure to use */
 			  					config->mysql_config.mysql_host,  /* server hostname or IP address */ 
 			  					config->mysql_config.mysql_user,  /* mysql user */
 			  					config->mysql_config.mysql_pwd,   /* password */
@@ -206,7 +206,7 @@ FRISO_API int friso_init_from_ifile(
    						fprintf(stderr, "open mysql error!");
    					}else{
 						printf("Connection character set: %s\n", mysql_character_set_name(config->mysql));
-						if (mysql_select_db(mconfig->mysql, config->mysql_config.mysql_database_name))
+						if (mysql_select_db(config->mysql, config->mysql_config.mysql_database_name))
 						{
 							fprintf(stderr,">切换数据库失败!\n");
   						}
