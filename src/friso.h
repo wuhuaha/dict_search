@@ -71,6 +71,7 @@ typedef enum {
 typedef struct {
     friso_dic_t dic;        //friso dictionary
     friso_charset_t charset;    //project charset.
+    char domain[128];  //friso domain
 } friso_entry;
 typedef friso_entry * friso_t;
 
@@ -200,11 +201,15 @@ typedef friso_config_entry * friso_config_t;
  * This function used to create a new empty friso friso_t; 
  *        with default value.
  */
-FRISO_API friso_t friso_new( void );
+FRISO_API friso_t friso_new(  fstring domain );
 
 //creat a friso entry with a default value from a configuratile file.
 //@return 1 for successfully and 0 for failed.
 FRISO_API int friso_init_from_ifile( friso_t, friso_config_t, fstring );
+
+
+FRISO_API int friso_mysql_init_from_ifile( 
+			friso_array_t , friso_config_t , fstring );
 
 /*
  * Function: friso_free_vars;

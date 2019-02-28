@@ -17,13 +17,14 @@
 //friso instance about function
 /* {{{ create a new friso configuration variable.
 */
-FRISO_API friso_t friso_new( void ) 
+FRISO_API friso_t friso_new( fstring domain ) 
 {
     friso_t e = ( friso_t ) FRISO_MALLOC( sizeof( friso_entry ) );
     if ( e == NULL ) {
         ___ALLOCATION_ERROR___
     } 
 
+	snprintf(e->domain, sizeof(e->domain), "%s", domain);
     e->dic    = NULL;
     e->charset    = FRISO_UTF8;    //set default charset UTF8.
 
@@ -232,6 +233,261 @@ FRISO_API int friso_init_from_ifile(
     return 0;
 }
 /* }}} */
+
+/* {{{ creat a new friso with initialize item from a configuration file.
+* 
+* @return 1 for successfully and 0 for failed.
+*/
+FRISO_API int friso_mysql_init_from_ifile( 
+			friso_array_t friso_arry, friso_config_t config, fstring __ifile ) 
+{
+		FILE *__stream;
+		char __chars__[256], __key__[128], *__line__;
+		char __lexi__[160], lexpath[160];
+		uint_t i, t, __hit__ = 0, __length__;
+	
+		char *slimiter = NULL;
+		uint_t flen = 0;
+		register int j = 0;
+
+		friso_arry = new_array_list_with_opacity(12);
+
+		array_list_add(friso_arry, friso_new("base"));
+	
+		//get the base part of the path of the __ifile
+		if ( (slimiter = strrchr(__ifile, '/')) != NULL ) {
+			flen = slimiter - __ifile + 1;
+		}
+	
+		//yat, start to parse the friso.ini configuration file
+		if ( ( __stream = fopen( __ifile, "rb" ) ) != NULL ) {
+			//initialize the entry with the value from the ifile.
+			while ( ( __line__ = file_get_line( __chars__, __stream ) ) != NULL ) {
+				//comments filter.
+				if ( __line__[0] == '#' ) continue;
+				if ( __line__[0] == '\t' ) continue; 
+				if ( __line__[0] == ' ' || __line__[0] == '\0' ) continue;
+	
+				__length__ = strlen( __line__ );
+				for ( i = 0; i < __length__; i++ ) {
+					if ( __line__[i] == ' ' 
+							|| __line__[i] == '\t' || __line__[i] == '=' ) {
+						break;
+					}
+					__key__[i] = __line__[i];
+				}
+				__key__[i] = '\0';
+	
+				//position the euqals char '='.
+				if ( __line__[i] == ' ' || __line__[i] == '\t' ) {
+					for ( i++ ; i < __length__; i++ ) {
+						if ( __line__[i] == '=' ) {
+							break; 
+						}
+					}
+				} 
+	
+				//clear the left whitespace of the value.
+				for ( i++; i < __length__ 
+						&& ( __line__[i] == ' ' || __line__[i] == '\t' ); i++ );
+				for ( t = 0; i < __length__; i++, t++ ) {
+					if ( __line__[i] == ' ' || __line__[i] == '\t' ) {
+						break;
+					}
+					__line__[t] = __line__[i]; 
+				} 
+				__line__[t] = '\0';
+	
+				//printf("key=%s, value=%s\n", __key__, __line__ );
+				if ( strcmp( __key__, "friso.lex_dir" ) == 0 ) {
+					/*
+					 * here copy the value of the lex_dir.
+					 *		  cause we need the value of friso.max_len to finish all
+					 *	  the work when we call function friso_dic_load_from_ifile to
+					 *	  initiliaze the friso dictionary.
+					 */
+					if ( __hit__ == 0 ) {
+						__hit__ = t;
+						for ( t = 0; t < __hit__; t++ ) {
+							__lexi__[t] = __line__[t];
+						}
+						__lexi__[t] = '\0';
+					} 
+				} else if ( strcmp( __key__, "friso.max_len" ) == 0 ) {
+					config->max_len = ( ushort_t ) atoi( __line__ );
+				} else if ( strcmp( __key__, "friso.r_name" ) == 0 ) {
+					config->r_name = ( ushort_t ) atoi( __line__ );
+				} else if ( strcmp( __key__, "friso.mix_len" ) == 0 ) {
+					config->mix_len = ( ushort_t ) atoi( __line__ );
+				} else if ( strcmp( __key__, "friso.lna_len" ) == 0 ) {
+					config->lna_len = ( ushort_t ) atoi( __line__ );
+				} else if ( strcmp( __key__, "friso.add_syn" ) == 0 ) {
+					config->add_syn = ( ushort_t ) atoi( __line__ );
+				} else if ( strcmp( __key__, "friso.clr_stw" ) == 0 ) {
+					config->clr_stw = ( ushort_t ) atoi( __line__ );	
+				} else if ( strcmp( __key__, "friso.keep_urec" ) == 0 ) {
+					config->keep_urec = ( uint_t ) atoi( __line__ );	
+				} else if ( strcmp( __key__, "friso.spx_out" ) == 0 ) {
+					config->spx_out = ( ushort_t ) atoi( __line__ );
+				} else if ( strcmp( __key__, "friso.nthreshold" ) == 0 ) {
+					config->nthreshold = atoi( __line__ );
+				} else if ( strcmp( __key__, "friso.mode" ) == 0 ) {
+					//config->mode = ( friso_mode_t ) atoi( __line__ );
+					friso_set_mode(config, (friso_mode_t) atoi( __line__ ));
+				} else if ( strcmp( __key__, "friso.charset" ) == 0 ) {
+					friso->charset = (friso_charset_t) atoi( __line__ );
+				} else if ( strcmp( __key__, "friso.en_sseg") == 0 ) {
+					config->en_sseg = (ushort_t) atoi( __line__ );
+				} else if ( strcmp( __key__, "friso.st_minl") == 0 ) {
+					config->st_minl = (ushort_t) atoi( __line__ );
+				} else if ( strcmp( __key__, "mysql_host") == 0 ) {
+					config->mysql_config.mysql_host = string_copy_heap(__line__ , strlen(__line__));
+				} else if ( strcmp( __key__, "mysql_port") == 0 ) {
+					config->mysql_config.mysql_port = atoi( __line__ );
+				} else if ( strcmp( __key__, "mysql_user") == 0 ) {
+					config->mysql_config.mysql_user = string_copy_heap(__line__ , strlen(__line__));
+				} else if ( strcmp( __key__, "mysql_pwd") == 0 ) {
+					config->mysql_config.mysql_pwd = string_copy_heap(__line__ , strlen(__line__));
+				} else if ( strcmp( __key__, "mysql_database_name") == 0 ) {
+					config->mysql_config.mysql_database_name = string_copy_heap(__line__ , strlen(__line__));
+				}else if ( strcmp( __key__, "friso.kpuncs") == 0 ) {
+					//t is the length of the __line__.
+					memcpy(config->kpuncs, __line__, t);
+					//printf("friso_init_from_ifile#kpuncs: %s\n", config->kpuncs);
+				}
+			}
+
+			if(config->mysql_config.mysql_host != NULL){
+					printf("mysql config>>host:%s\tport:%d\tuser:%s\tpwd:%s\tdatabase_name:%s\n",
+						config->mysql_config.mysql_host, config->mysql_config.mysql_port, config->mysql_config.mysql_user, config->mysql_config.mysql_pwd, config->mysql_config.mysql_database_name);
+					config->mysql = mysql_init(config->mysql);
+					if(!config->mysql){
+						fprintf(stderr, "init mysql error!");
+					}else{
+						if (!mysql_real_connect(config->mysql,		 /* MYSQL structure to use */
+									config->mysql_config.mysql_host,  /* server hostname or IP address */ 
+									config->mysql_config.mysql_user,  /* mysql user */
+									config->mysql_config.mysql_pwd,   /* password */
+									NULL,		 /* default database to use, NULL for none */
+									config->mysql_config.mysql_port,		  /* port number, 0 for default */
+									NULL,		 /* socket file or named pipe name */
+									CLIENT_FOUND_ROWS /* connection flags */ 
+							)) 
+						{
+							fprintf(stderr, "open mysql error!");
+						}else{
+							printf("Connection character set: %s\n", mysql_character_set_name(config->mysql));
+							if (mysql_select_db(config->mysql, config->mysql_config.mysql_database_name))
+							{
+								fprintf(stderr,">切换数据库失败!\n");
+							}else{
+								mysql_query(config->mysql, "set names 'utf8'");
+								printf("Change character to utf8\n");
+								//get the number of lex
+								if ((ret = mysql_query(config_list[i]->mysql, "show tables")))
+								{
+									fprintf(stderr, ">数据查询错误!错误代码:%d\n", ret);
+  								}
+								MYSQL_RES * mysqlResult = NULL;
+								MYSQL_ROW mysqlRow;
+								mysqlResult = mysql_store_result(config_list[i]->mysql);
+								if ((mysqlResult == NULL))
+								{
+									fprintf(stderr, ">数据查询失败! %d:%s\n", mysql_errno(config_list[i]->mysql), mysql_error(config_list[i]->mysql));
+								}
+								fstring domain; 
+								friso_t friso_tmp;
+								while ((mysqlRow = mysql_fetch_row(mysqlResult)))
+								{	
+									domain = NULL;
+									friso_tmp =  NULL;
+									if(strstr(mysqlRow[0], "domain_") == mysqlRow[0]){
+										domain = mysqlRow[0] + 7;
+										friso_tmp = friso_new(domain);
+										array_list_add(friso_arry, friso_tmp);
+										printf("add domain :%s\n", domain);
+										friso_dic_load_by_sql( friso_tmp, config, __LEX_CJK_WORDS__, mysqlRow[0], config->max_len * (friso_tmp->charset == FRISO_UTF8 ? 3 : 2));
+									}								
+								}
+								while ((mysqlRow = mysql_fetch_row(mysqlResult)))
+								{
+									if(strstr(mysqlRow[0], "domain_") != mysqlRow[0]){		
+										for(j = 0; j < friso_arry->length; j++){
+											friso_dic_load_by_sql( friso_arry->items[j], config, __LEX_CJK_WORDS__, mysqlRow[0], config->max_len * (friso_arry->items[j]->charset == FRISO_UTF8 ? 3 : 2));
+										}
+									}
+								}
+								printf("\n");
+								
+							}
+						}
+					}
+			}else{
+				fprintf(stderr, "failed get lexicon sql, check sql in friso.ini \n");
+			}
+
+			print("there %d friso\n", friso_arry->length);
+			
+			/*
+			 * intialize the friso dictionary here.
+			 *		  use the setting from the ifile parse above
+			 *	  we copied the value in the __lexi__
+			 */
+			if ( __hit__ != 0 ) {
+				//add relative path search support
+				//@added: 2014-05-24
+				//convert the relative path to absolute path base on the path of friso.ini
+				//improved at @date: 2014-10-26
+/*	
+#ifdef FRISO_WINNT
+				if ( __lexi__[1] != ':' && flen != 0 ) {
+#else
+				if ( __lexi__[0] != '/' && flen != 0 ) {
+#endif
+*/
+				if ( __lexi__[0] != '/' && flen != 0 ) {
+					if ( (flen + __hit__) > sizeof(lexpath) - 1 ) {
+						fprintf(stderr, "[Error]: Buffer is not long enough to hold the final lexicon path");
+						fprintf(stderr, " with a length of {%d} at function friso.c#friso_init_from_ifile", flen + __hit__);
+						return 0;
+					}
+	
+					memcpy(lexpath, __ifile, flen);
+					memcpy(lexpath + flen, __lexi__, __hit__ - 1);
+					//count the new length
+					flen = flen + __hit__ - 1;
+					if ( lexpath[flen-1] != '/'  ) lexpath[flen] = '/';
+					lexpath[flen+1] = '\0';
+				} else {
+					memcpy(lexpath, __lexi__, __hit__);
+					lexpath[__hit__] = '\0';
+					if ( lexpath[__hit__ - 1] != '/'  ) {
+						lexpath[__hit__] = '/';
+						lexpath[__hit__+1] = '\0';
+					}
+				}
+					
+				friso->dic = friso_dic_new();
+				//add charset check for max word length counting
+				for(j = 0; j < friso_arry->length; j++){
+											friso_dic_load_from_ifile( friso_arry->items[j], config, 
+						lexpath, config->max_len * (friso_arry->items[j]->charset == FRISO_UTF8 ? 3 : 2) );
+				}
+				
+			} else {
+				 fprintf(stderr, "failed get lexicon path, check lex_dir in friso.ini \n");
+			}
+	
+			fclose( __stream );
+			return 1;
+		}
+	
+		return 0;
+}
+/* }}} */
+
+
+	
 
 /* {{{ friso free functions.
  * here we have to free its dictionary.

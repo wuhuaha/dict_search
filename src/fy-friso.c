@@ -571,8 +571,8 @@ int main(int argc, char **argv)
     house_lex.class_rex =  new_array_list_with_opacity(512);
     house_lex.class_single = new_array_list_with_opacity(512);
 
-    friso_t friso_list[__DOMAIN_NUM__];
-    friso_config_t config_list[__DOMAIN_NUM__];
+    friso_array_t friso_array = NULL;
+    friso_config_t config = friso_new_config();;
     
     s_time = clock();
 
@@ -596,24 +596,19 @@ int main(int argc, char **argv)
 
     log_debug(sa_log, "main", "listen port: %d listen_fd: %d", g_sz_run_arg.port, g_sz_run_arg.listen_fd);
 
-    register int i = 0;
-    for(i = 0 ;i < __DOMAIN_NUM__; i++)
-    {
-        friso_list[i] = friso_new();
-        config_list[i] = friso_new_config();
-        snprintf(path, sizeof(path), "%s/%s.ini", g_sz_run_arg.path, domain_name[i]);
+    snprintf(path, sizeof(path), "%s/%s.ini", g_sz_run_arg.path, domain_name[i]);
 
-        if ( path == NULL ) {
+     if ( path == NULL ) {
             println("Usage: friso -init lexicon path");
             exit(0);
-        }
+    }
 
-        if ( friso_init_from_ifile(friso_list[i], config_list[i], path) != 1 ) {
+    if ( friso_init_from_ifile(friso_array, config, path) != 1 ) {
             log_err(sa_log, "main", "fail to initialize friso and config.");
             goto err;
-        }
+    }
 
-		switch ( config_list[i]->mode ) {
+	switch ( config->mode ) {
         case __FRISO_SIMPLE_MODE__:
             mode = "Simple";
             break;
@@ -623,46 +618,16 @@ int main(int argc, char **argv)
         case __FRISO_DETECT_MODE__:
             mode = "Detect";
             break;
-        }
-#if 1
-	if(config_list[i]->mysql != NULL)
-	{
-
-		friso_dic_load_by_sql( friso_list[i], config_list[i], __LEX_CJK_WORDS__, "base", config_list[i]->max_len * (friso_list[i]->charset == FRISO_UTF8 ? 3 : 2));
-
-		printf("[%d]\t", i);
-		if ((ret = mysql_query(config_list[i]->mysql, "show tables")))
-		{
-			fprintf(stderr, ">数据查询错误!错误代码:%d\n", ret);
-  		}
-		MYSQL_RES * mysqlResult = NULL;
-		MYSQL_ROW mysqlRow;
-		mysqlResult = mysql_store_result(config_list[i]->mysql);
-		if ((mysqlResult == NULL))
-		{
-			fprintf(stderr, ">数据查询失败! %d:%s\n", mysql_errno(config_list[i]->mysql), mysql_error(config_list[i]->mysql));
-		}
-		while ((mysqlRow = mysql_fetch_row(mysqlResult)))
-		{			
-			if(strstr(mysqlRow[0], "domain_") == mysqlRow[0]){
-				printf("%s\t", mysqlRow[0] + 7);
-			}
-		}
-		printf("\n");
-	}
-#endif				
-
-        e_time = clock();
-
-        log_debug(sa_log, "main", "Initialized in %fsec", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
-        log_debug(sa_log, "main", "Mode: %s", mode);
-        log_debug(sa_log, "main", "+-Version: %s (%s)", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
-		
-		printf("Initialized in %fsec", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
-		printf("Mode: %s", mode);
-		printf("+-Version: %s (%s)", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
-
     }
+
+    e_time = clock();
+    log_debug(sa_log, "main", "Initialized in %fsec", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
+    log_debug(sa_log, "main", "Mode: %s", mode);
+    log_debug(sa_log, "main", "+-Version: %s (%s)", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
+	printf("Initialized in %fsec\t", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
+	printf("Mode: %s\t", mode);
+	printf("%s\n", friso_array->items[0]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
+
 
     add_dict_to_arry("/root/dict/house/house_rex.txt", house_lex.class_rex);
     log_debug(sa_log, "main", "there %d arry in key_rex_arry", house_lex.class_rex->length);
@@ -713,7 +678,7 @@ int main(int argc, char **argv)
                     //关闭侦听socket
                     SAFE_CLOSE_SOCKET(g_sz_run_arg.listen_fd);
                     
-                    ret = work_child_process(client_sockfd, friso_list, config_list, &house_lex);
+                    //ret = work_child_process(client_sockfd, friso_list, config_list, &house_lex);
                         
                     SAFE_CLOSE_SOCKET(client_sockfd);
 
