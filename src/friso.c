@@ -395,10 +395,10 @@ FRISO_API int friso_mysql_init_from_ifile(
   								}
 								MYSQL_RES * mysqlResult = NULL;
 								MYSQL_ROW mysqlRow;
-								mysqlResult = mysql_store_result(config_list[i]->mysql);
+								mysqlResult = mysql_store_result(config->mysql);
 								if ((mysqlResult == NULL))
 								{
-									fprintf(stderr, ">数据查询失败! %d:%s\n", mysql_errno(config_list[i]->mysql), mysql_error(config_list[i]->mysql));
+									fprintf(stderr, ">数据查询失败! %d:%s\n", mysql_errno(config->mysql), mysql_error(config->mysql));
 								}
 								while ((mysqlRow = mysql_fetch_row(mysqlResult)))
 								{	
