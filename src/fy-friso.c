@@ -315,7 +315,7 @@ static int num_of_class(char *class)
 * @arg: [IN] 
 * @return 成功: 0 失败: -1
 */
-static int work_child_process( int client_sockfd, friso_array_t *friso_array, friso_config_t config, class_lex_t class_lex)
+static int work_child_process( int client_sockfd, friso_array_t friso_array, friso_config_t config, class_lex_t class_lex)
 {
     
         friso_task_t task; 
@@ -597,14 +597,14 @@ int main(int argc, char **argv)
 
     log_debug(sa_log, "main", "listen port: %d listen_fd: %d", g_sz_run_arg.port, g_sz_run_arg.listen_fd);
 
-    snprintf(path, sizeof(path), "%s/%s.ini", g_sz_run_arg.path, domain_name[i]);
+    snprintf(path, sizeof(path), "%s.ini", g_sz_run_arg.path);
 
      if ( path == NULL ) {
             println("Usage: friso -init lexicon path");
             exit(0);
     }
 
-    if ( friso_init_from_ifile(friso_array, config, path) != 1 ) {
+    if ( friso_mysql_init_from_ifile(friso_array, config, path) != 1 ) {
             log_err(sa_log, "main", "fail to initialize friso and config.");
             goto err;
     }
