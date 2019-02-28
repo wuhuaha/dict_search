@@ -611,7 +611,7 @@ FRISO_API void friso_dic_load_by_sql(
 
 		if(flag == 1){
 			if(lex_entry != NULL){
-				if((strchr(_word, ' ') == NULL) || (_word, ' ') == NULL) || (_word, '*') == NULL)){
+				if((strchr(_word, ' ') == NULL) || (strchr(_word, ' ') == NULL) || (strchr(_word, '*') == NULL)){
 					array_list_add(friso->domain_pinyin, lex_entry);
 				}else{
 					array_list_add(friso->domain_rex, lex_entry);
