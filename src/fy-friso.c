@@ -315,7 +315,7 @@ static int num_of_class(char *class)
 * @arg: [IN] 
 * @return 成功: 0 失败: -1
 */
-static int work_child_process( int client_sockfd, friso_t *friso_list, friso_config_t *config_list, class_lex_t class_lex)
+static int work_child_process( int client_sockfd, friso_array_t *friso_array, friso_config_t config, class_lex_t class_lex)
 {
     
         friso_task_t task; 
@@ -338,8 +338,7 @@ static int work_child_process( int client_sockfd, friso_t *friso_list, friso_con
         log_info(sa_log, class, "word:%s",word);
 
         //根据领域，选取相应的firso结构
-        friso_t friso  = friso_list[idex]; 
-        friso_config_t config = config_list[idex];
+        friso_t friso  = friso_array->items[idex]; 
         //set the task.
         task = friso_new_task();
         friso_set_text( task, word );
@@ -567,11 +566,13 @@ int main(int argc, char **argv)
     pid_t ppid;
     int client_sockfd;
     int ret = 0;
+	int j = 0;
     class_lex house_lex;
     house_lex.class_rex =  new_array_list_with_opacity(512);
     house_lex.class_single = new_array_list_with_opacity(512);
 
     friso_array_t friso_array = NULL;
+	friso_t friso_tmp;
     friso_config_t config = friso_new_config();;
     
     s_time = clock();
@@ -621,12 +622,13 @@ int main(int argc, char **argv)
     }
 
     e_time = clock();
+	friso_tmp = array_list_get(friso_array, 0);
     log_debug(sa_log, "main", "Initialized in %fsec", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
     log_debug(sa_log, "main", "Mode: %s", mode);
-    log_debug(sa_log, "main", "+-Version: %s (%s)", friso_version(), friso_list[i]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
+    log_debug(sa_log, "main", "+-Version: %s (%s)", friso_version(), friso_tmp->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
 	printf("Initialized in %fsec\t", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
 	printf("Mode: %s\t", mode);
-	printf("%s\n", friso_array->items[0]->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
+	printf("%s\n", friso_tmp->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
 
 
     add_dict_to_arry("/root/dict/house/house_rex.txt", house_lex.class_rex);
@@ -678,7 +680,7 @@ int main(int argc, char **argv)
                     //关闭侦听socket
                     SAFE_CLOSE_SOCKET(g_sz_run_arg.listen_fd);
                     
-                    //ret = work_child_process(client_sockfd, friso_list, config_list, &house_lex);
+                    ret = work_child_process(client_sockfd, friso_array, config, &house_lex);
                         
                     SAFE_CLOSE_SOCKET(client_sockfd);
 
@@ -697,11 +699,11 @@ int main(int argc, char **argv)
 
     //error block.
 err:
-    for(i = 0 ;i < __DOMAIN_NUM__; i++)
-    {
-        friso_free_config(config_list[i]);
-        friso_free(friso_list[i]);  
-    }      
+	friso_free_config(config);
+    for(j = 0; j < friso_array->length; j++){
+		friso_tmp = array_list_get(friso_array, j);
+		friso_free(friso_tmp);
+	}     
 
     free_class_lex(&house_lex);
     nlp_zlog_uninit(&sa_log);

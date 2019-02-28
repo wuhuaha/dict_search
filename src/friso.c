@@ -498,8 +498,6 @@ FRISO_API int friso_mysql_init_from_ifile(
 		return 0;
 }
 /* }}} */
-
-
 	
 
 /* {{{ friso free functions.
