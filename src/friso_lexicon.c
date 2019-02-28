@@ -238,9 +238,9 @@ FRISO_API lex_entry_t friso_dic_add_lable(
 			return old_entry;
 		}else{
         	printf("None this entry,so,did't add lable");
-			return NULL;
 		}
     }
+	return NULL;
 }
 /*
  * read a line from a specified stream.
