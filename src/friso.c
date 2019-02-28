@@ -418,6 +418,9 @@ FRISO_API int friso_mysql_init_from_ifile(
 									if(strstr(mysqlRow[0], "domain_") != mysqlRow[0]){		
 										for(j = 0; j < friso_arry->length; j++){
 											friso_tmp = array_list_get(friso_arry, j);
+											if(friso_tmp->dic == NULL){
+												friso_tmp->dic = friso_dic_new();
+											}
 											friso_dic_load_by_sql( friso_tmp, config, __LEX_CJK_WORDS__, mysqlRow[0], 
 															config->max_len * (friso_tmp->charset == FRISO_UTF8 ? 3 : 2));
 										}
@@ -473,10 +476,13 @@ FRISO_API int friso_mysql_init_from_ifile(
 					}
 				}
 					
-				friso->dic = friso_dic_new();
+				
 				//add charset check for max word length counting
 				for(j = 0; j < friso_arry->length; j++){
 					friso_tmp = array_list_get(friso_arry, j);
+					if(friso_tmp->dic == NULL){
+						friso_tmp->dic = friso_dic_new();
+					}
 											friso_dic_load_from_ifile( friso_tmp, config, 
 						lexpath, config->max_len * (friso_tmp->charset == FRISO_UTF8 ? 3 : 2) );
 				}
