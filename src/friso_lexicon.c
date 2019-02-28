@@ -220,7 +220,7 @@ FRISO_API void friso_dic_add_pinyin(
 }
 
 //添加标签
-FRISO_API void friso_dic_add_lable( 
+FRISO_API lex_entry_t friso_dic_add_lable( 
         friso_dic_t dic,
         friso_lex_t lex,
         fstring word, 
@@ -235,6 +235,7 @@ FRISO_API void friso_dic_add_lable(
 				old_entry->lable = lable;
                 //printf("add lable:%s to word:%s\n", old_entry->lable, old_entry->word);
 			}
+			return old_entry;
 		}else{
         	printf("None this entry,so,did't add lable");
 		}
@@ -510,6 +511,12 @@ FRISO_API void friso_dic_load_by_sql(
     char _pbuffer[512];
 	register int iNumRow = 0;
 	string_split_entry sse;
+	int flag = 0;
+	lex_entry_t  lex_entry;
+
+	if(strstr(lex_table, "domain_") == lex_table){
+		flag = 1;
+	}
 	
 	snprintf(sql_query, sizeof(sql_query),"SELECT word, syn, fre, pinyin, label FROM %s", lex_table);
 	if ((ret = mysql_query(sql, sql_query)))
@@ -533,6 +540,7 @@ FRISO_API void friso_dic_load_by_sql(
 	while ((mysqlRow = mysql_fetch_row(mysqlResult)))
 	{
 		//word
+		lex_entry = NULL;
 		_word = string_copy_heap( mysqlRow[0], strlen(mysqlRow[0]));
 		//friso_dic_add( friso->dic, lex, _word, NULL ); 
 		//syn
@@ -597,10 +605,19 @@ FRISO_API void friso_dic_load_by_sql(
        	}
         //add lable    
       	if( (_lable != NULL) && (strcmp(_lable, "null") != 0) ){
-            friso_dic_add_lable( 
+            lex_entry = friso_dic_add_lable( 
                     friso->dic, lex, _word, _lable);
       	}
-						
+
+		if(flag == 1){
+			if(lex_entry != NULL){
+				if((strchr(_word, ' ') == NULL) || (_word, ' ') == NULL) || (_word, '*') == NULL)){
+					array_list_add(friso->domain_pinyin, lex_entry);
+				}else{
+					array_list_add(friso->domain_rex, lex_entry);
+				}
+			}
+		}
 	}
 	mysql_free_result(mysqlResult);
 	return;
