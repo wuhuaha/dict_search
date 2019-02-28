@@ -227,7 +227,7 @@ FRISO_API lex_entry_t friso_dic_add_lable(
         fstring lable ) 
 {   
 	lex_entry_t old_entry = NULL;
-    if(lable == NULL) return;
+    if(lable == NULL) return NULL;
     if ( lex >= 0 && lex < __FRISO_LEXICON_LENGTH__ ) {
         old_entry = (lex_entry_t)hash_get_value(dic[lex], word);
 		if(old_entry != NULL){
@@ -238,6 +238,7 @@ FRISO_API lex_entry_t friso_dic_add_lable(
 			return old_entry;
 		}else{
         	printf("None this entry,so,did't add lable");
+			return NULL;
 		}
     }
 }
