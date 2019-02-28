@@ -245,6 +245,10 @@ FRISO_API int friso_mysql_init_from_ifile(
 		char __chars__[256], __key__[128], *__line__;
 		char __lexi__[160], lexpath[160];
 		uint_t i, t, __hit__ = 0, __length__;
+		int ret = 0;
+		
+		fstring domain; 
+		friso_t friso_base, friso_tmp;
 	
 		char *slimiter = NULL;
 		uint_t flen = 0;
@@ -252,7 +256,8 @@ FRISO_API int friso_mysql_init_from_ifile(
 
 		friso_arry = new_array_list_with_opacity(12);
 
-		array_list_add(friso_arry, friso_new("base"));
+		friso_base = friso_new("base");
+		array_list_add(friso_arry, friso_base);
 	
 		//get the base part of the path of the __ifile
 		if ( (slimiter = strrchr(__ifile, '/')) != NULL ) {
@@ -335,7 +340,7 @@ FRISO_API int friso_mysql_init_from_ifile(
 					//config->mode = ( friso_mode_t ) atoi( __line__ );
 					friso_set_mode(config, (friso_mode_t) atoi( __line__ ));
 				} else if ( strcmp( __key__, "friso.charset" ) == 0 ) {
-					friso->charset = (friso_charset_t) atoi( __line__ );
+					friso_base->charset = (friso_charset_t) atoi( __line__ );
 				} else if ( strcmp( __key__, "friso.en_sseg") == 0 ) {
 					config->en_sseg = (ushort_t) atoi( __line__ );
 				} else if ( strcmp( __key__, "friso.st_minl") == 0 ) {
@@ -384,7 +389,7 @@ FRISO_API int friso_mysql_init_from_ifile(
 								mysql_query(config->mysql, "set names 'utf8'");
 								printf("Change character to utf8\n");
 								//get the number of lex
-								if ((ret = mysql_query(config_list[i]->mysql, "show tables")))
+								if ((ret = mysql_query(config->mysql, "show tables")))
 								{
 									fprintf(stderr, ">数据查询错误!错误代码:%d\n", ret);
   								}
@@ -395,8 +400,6 @@ FRISO_API int friso_mysql_init_from_ifile(
 								{
 									fprintf(stderr, ">数据查询失败! %d:%s\n", mysql_errno(config_list[i]->mysql), mysql_error(config_list[i]->mysql));
 								}
-								fstring domain; 
-								friso_t friso_tmp;
 								while ((mysqlRow = mysql_fetch_row(mysqlResult)))
 								{	
 									domain = NULL;
@@ -404,6 +407,7 @@ FRISO_API int friso_mysql_init_from_ifile(
 									if(strstr(mysqlRow[0], "domain_") == mysqlRow[0]){
 										domain = mysqlRow[0] + 7;
 										friso_tmp = friso_new(domain);
+										friso_tmp->charset = friso_base->charset;
 										array_list_add(friso_arry, friso_tmp);
 										printf("add domain :%s\n", domain);
 										friso_dic_load_by_sql( friso_tmp, config, __LEX_CJK_WORDS__, mysqlRow[0], config->max_len * (friso_tmp->charset == FRISO_UTF8 ? 3 : 2));
@@ -413,7 +417,9 @@ FRISO_API int friso_mysql_init_from_ifile(
 								{
 									if(strstr(mysqlRow[0], "domain_") != mysqlRow[0]){		
 										for(j = 0; j < friso_arry->length; j++){
-											friso_dic_load_by_sql( friso_arry->items[j], config, __LEX_CJK_WORDS__, mysqlRow[0], config->max_len * (friso_arry->items[j]->charset == FRISO_UTF8 ? 3 : 2));
+											friso_tmp = array_list_get(friso_arry, j);
+											friso_dic_load_by_sql( friso_tmp, config, __LEX_CJK_WORDS__, mysqlRow[0], 
+															config->max_len * (friso_tmp->charset == FRISO_UTF8 ? 3 : 2));
 										}
 									}
 								}
@@ -426,7 +432,7 @@ FRISO_API int friso_mysql_init_from_ifile(
 				fprintf(stderr, "failed get lexicon sql, check sql in friso.ini \n");
 			}
 
-			print("there %d friso\n", friso_arry->length);
+			printf("there %d friso\n", friso_arry->length);
 			
 			/*
 			 * intialize the friso dictionary here.
@@ -470,8 +476,9 @@ FRISO_API int friso_mysql_init_from_ifile(
 				friso->dic = friso_dic_new();
 				//add charset check for max word length counting
 				for(j = 0; j < friso_arry->length; j++){
-											friso_dic_load_from_ifile( friso_arry->items[j], config, 
-						lexpath, config->max_len * (friso_arry->items[j]->charset == FRISO_UTF8 ? 3 : 2) );
+					friso_tmp = array_list_get(friso_arry, j);
+											friso_dic_load_from_ifile( friso_tmp, config, 
+						lexpath, config->max_len * (friso_tmp->charset == FRISO_UTF8 ? 3 : 2) );
 				}
 				
 			} else {
