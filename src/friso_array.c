@@ -93,6 +93,25 @@ FRISO_API void free_array_list( friso_array_t array )
     FRISO_FREE( array );
 }
 
+/*
+ * free the given friso array.
+ *    and its items, and where its items item pointed to . 
+ */
+FRISO_API void free_array_all( 
+    friso_array_t array, 
+    fhash_callback_fn_t fentry_func ) 
+{
+	register int t;
+	for ( t = 0; t < array->length; t++ ) {
+   		if ( array->items[t] == NULL ) continue;
+   		fentry_func( array->items[t] );
+   		array->items[t] = NULL;
+    }
+	FRISO_FREE( array->items );
+    FRISO_FREE( array );
+}
+
+
 //add a new item to the array.
 FRISO_API void array_list_add( friso_array_t array, void *value ) 
 {

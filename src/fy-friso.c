@@ -295,18 +295,19 @@ static int  analy_buffer(char *buffer, char **class, char **word)
 * @return 成功: 对应的编号 失败: -1
 */
 
-static int num_of_class(char *class)
+static int num_of_class(char *class, friso_array_t friso_array)
 {
-    register int i = 0;
+    register int i = 0, j = 0;
+	friso_t friso_tmp = NULL;
     if( (class == NULL) || (*class == 0)){
-        log_err(sa_log, "main", "class is NULL!");
-        return -1;
+        log_err(sa_log, "main", "class is NULL!\t set it as base");
+        return 0;
     }
-    for(; i < __DOMAIN_NUM__; i++){
-        if(strcmp(class, domain_name[i]) == 0){
-            return i;
-        }
-    }
+    for(j = 0; j < friso_array->length; j++){
+		friso_tmp = array_list_get(friso_array, j);
+		if(strcmp(friso_tmp->domain, class) == 0)
+			return j;
+	}
     return 0;
 }
 
@@ -315,7 +316,7 @@ static int num_of_class(char *class)
 * @arg: [IN] 
 * @return 成功: 0 失败: -1
 */
-static int work_child_process( int client_sockfd, friso_array_t friso_array, friso_config_t config, class_lex_t class_lex)
+static int work_child_process( int client_sockfd, friso_array_t friso_array, friso_config_t config)
 {
     
         friso_task_t task; 
@@ -327,18 +328,20 @@ static int work_child_process( int client_sockfd, friso_array_t friso_array, fri
         int data_len = 0, similarity = 0, idex = 0, confidence = 0;
         char *class, *word, *word_lable;
         *send_buffer = *send_buffer_tmp = *detail = 0;
+		friso_t friso_tmp;
 
         //读取数据，并将其中的领域名及主要内容分析出
         memset(read_buffer, 0, sizeof(read_buffer));
         data_len = data_recv(client_sockfd, read_buffer, sizeof(read_buffer));
         log_debug(sa_log, "main", "read_buffer:%s, data_len:%d", read_buffer, data_len);
         analy_buffer(read_buffer, &class, &word);
-        idex = num_of_class(class);
-        log_debug(sa_log, "main", "domain:%s, idex:%d, domain_name:%s", class, idex, domain_name[idex]);
+        idex = num_of_class(class, friso_array);
+		friso_tmp = friso_tmp = array_list_get(friso_array, idex);
+        log_debug(sa_log, "main", "domain:%s, idex:%d, domain_name:%s", class, idex, friso_tmp->domain);
         log_info(sa_log, class, "word:%s",word);
 
         //根据领域，选取相应的firso结构
-        friso_t friso  = friso_array->items[idex]; 
+        friso_t friso  = array_list_get(friso_array, idex); 
         //set the task.
         task = friso_new_task();
         friso_set_text( task, word );
@@ -680,7 +683,7 @@ int main(int argc, char **argv)
                     //关闭侦听socket
                     SAFE_CLOSE_SOCKET(g_sz_run_arg.listen_fd);
                     
-                    ret = work_child_process(client_sockfd, friso_array, config, &house_lex);
+                    ret = work_child_process(client_sockfd, friso_array, config);
                         
                     SAFE_CLOSE_SOCKET(client_sockfd);
 

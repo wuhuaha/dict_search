@@ -27,6 +27,8 @@ FRISO_API friso_t friso_new( fstring domain )
 	snprintf(e->domain, sizeof(e->domain), "%s", domain);
     e->dic    = NULL;
     e->charset    = FRISO_UTF8;    //set default charset UTF8.
+    e->domain_pinyin = new_array_list_with_opacity(8);
+    e->domain_rex = new_array_list_with_opacity(8);
 
     return e;
 }
@@ -509,6 +511,8 @@ FRISO_API void friso_free( friso_t friso )
     if ( friso->dic != NULL ) {
         friso_dic_free( friso->dic );
     }
+	free_array_dicts(friso->domain_pinyin);
+	free_array_dicts(friso->domain_rex);
     FRISO_FREE( friso );
 }
 /* }}} */

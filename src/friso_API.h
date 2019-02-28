@@ -197,6 +197,20 @@ FRISO_API friso_array_t new_array_list_with_opacity( uint_t );
  *     and its items, but never where the items's item to pointed to . 
  */
 FRISO_API void free_array_list( friso_array_t );
+/*
+ * free the given friso array.
+ *    and its items, and where its items item pointed to . 
+ */
+FRISO_API void free_array_all( 
+    friso_array_t , 
+    fhash_callback_fn_t );
+/*
+ * free the given friso array.
+ *    and its items, and dicts its items item pointed to . 
+*/
+
+#define free_array_dicts(array)	free_array_all(array, default_fdic_callback)
+
 
 //add a new item to the array.
 FRISO_API void array_list_add( friso_array_t, void * );

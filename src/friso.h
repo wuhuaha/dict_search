@@ -72,6 +72,8 @@ typedef struct {
     friso_dic_t dic;        //friso dictionary
     friso_charset_t charset;    //project charset.
     char domain[128];  //friso domain
+    friso_array_t domain_pinyin;
+	friso_array_t domain_rex;
 } friso_entry;
 typedef friso_entry * friso_t;
 
