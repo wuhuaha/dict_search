@@ -449,8 +449,29 @@ FRISO_API int get_utf8_unicode(const fstring);
  * */
 FRISO_API int unicode_to_utf8(uint_t, fstring);
 
+/**
+ * default callback function to invoke
+ *     when free the friso dictionary . 
+ *
+ * @date 2013-06-12
+ */
+FRISO_API void default_fdic_callback( hash_entry_t );
 
 /* }}} utf8 string interface define :: start*/
+
+/*
+ * free the given friso array.
+ *    and its items, and where its items item pointed to . 
+ */
+FRISO_API void free_array_all( 
+    friso_array_t , 
+    fhash_callback_fn_t );
+/*
+ * free the given friso array.
+ *    and its items, and dicts its items item pointed to . 
+*/
+
+#define free_array_dicts(array)	free_array_all(array, default_fdic_callback)
 
 #endif /*end ifndef*/
 

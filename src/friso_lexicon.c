@@ -36,7 +36,7 @@ FRISO_API friso_dic_t friso_dic_new()
  *
  * @date 2013-06-12
  */
-__STATIC_API__ void default_fdic_callback( hash_entry_t e ) 
+FRISO_API void default_fdic_callback( hash_entry_t e ) 
 {
     register uint_t i;
     friso_array_t syn;
