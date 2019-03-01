@@ -412,6 +412,9 @@ FRISO_API int friso_mysql_init_from_ifile(
 										friso_tmp->charset = friso_base->charset;
 										array_list_add(friso_arry, friso_tmp);
 										printf("add domain :%s\n", domain);
+										if(friso_tmp->dic == NULL){
+											friso_tmp->dic = friso_dic_new();
+										}
 										friso_dic_load_by_sql( friso_tmp, config, __LEX_CJK_WORDS__, mysqlRow[0], config->max_len * (friso_tmp->charset == FRISO_UTF8 ? 3 : 2));
 									}								
 								}

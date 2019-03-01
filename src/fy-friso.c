@@ -297,7 +297,7 @@ static int  analy_buffer(char *buffer, char **class, char **word)
 
 static int num_of_class(char *class, friso_array_t friso_array)
 {
-    register int i = 0, j = 0;
+    register int  j = 0;
 	friso_t friso_tmp = NULL;
     if( (class == NULL) || (*class == 0)){
         log_err(sa_log, "main", "class is NULL!\t set it as base");
@@ -537,7 +537,7 @@ int main(int argc, char **argv)
 
     log_debug(sa_log, "main", "listen port: %d listen_fd: %d", g_sz_run_arg.port, g_sz_run_arg.listen_fd);
 
-    snprintf(path, sizeof(path), "%s.ini", g_sz_run_arg.path);
+    path = g_sz_run_arg.path;
 
      if ( path == NULL ) {
             println("Usage: friso -init lexicon path");
