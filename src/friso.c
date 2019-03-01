@@ -421,8 +421,6 @@ FRISO_API int friso_mysql_init_from_ifile(
 								{
 									fprintf(stderr, ">数据查询错误!错误代码:%d\n", ret);
   								}
-								MYSQL_RES * mysqlResult = NULL;
-								MYSQL_ROW mysqlRow;
 								mysqlResult = mysql_store_result(config->mysql);
 								if ((mysqlResult == NULL))
 								{
