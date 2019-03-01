@@ -502,7 +502,7 @@ int main(int argc, char **argv)
 
     clock_t s_time, e_time;
     fstring  mode = NULL;   
-    char path[512] = {0};
+    char *path = NULL;
     fd_set server_fd_set;
     int max_fd = -1;
     struct timeval tv;
