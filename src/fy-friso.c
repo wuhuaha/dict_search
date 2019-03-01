@@ -537,7 +537,7 @@ int main(int argc, char **argv)
 
     log_debug(sa_log, "main", "listen port: %d listen_fd: %d", g_sz_run_arg.port, g_sz_run_arg.listen_fd);
 
-    snprintf(path, sizeof(path), "%s.ini", g_sz_run_arg.path);
+    snprintf(path, sizeof(path), "%s", g_sz_run_arg.path);
 
      if ( path == NULL ) {
             println("Usage: friso -init lexicon path");
