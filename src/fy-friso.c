@@ -336,7 +336,7 @@ static int work_child_process( int client_sockfd, friso_array_t friso_array, fri
         log_debug(sa_log, "main", "read_buffer:%s, data_len:%d", read_buffer, data_len);
         analy_buffer(read_buffer, &class, &word);
         idex = num_of_class(class, friso_array);
-		friso_tmp = friso_tmp = array_list_get(friso_array, idex);
+		friso_tmp = array_list_get(friso_array, idex);
         log_debug(sa_log, "main", "domain:%s, idex:%d, domain_name:%s", class, idex, friso_tmp->domain);
         log_info(sa_log, class, "word:%s",word);
 
@@ -511,7 +511,7 @@ int main(int argc, char **argv)
     int ret = 0;
 	int j = 0;
     
-    friso_array_t friso_array = NULL;
+    friso_array_t friso_array = new_array_list_with_opacity( uint_t opacity );
 	friso_t friso_tmp;
     friso_config_t config = friso_new_config();;
     

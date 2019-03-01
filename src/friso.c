@@ -256,8 +256,6 @@ FRISO_API int friso_mysql_init_from_ifile(
 		uint_t flen = 0;
 		register int j = 0;
 
-		friso_arry = new_array_list_with_opacity(12);
-
 		friso_base = friso_new("base");
 		array_list_add(friso_arry, friso_base);
 	
