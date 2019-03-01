@@ -426,8 +426,8 @@ static int work_child_process( int client_sockfd, friso_array_t friso_array, fri
         //改为必然进行正则匹配
         if(1)
         {
-                if((rex_string(word, class_lex->class_rex, &idex)) > 0){
-                    key_entry* entry = *(class_lex->class_rex->items + idex);//将标签添加到整句的标签的尾部
+                if((rex_string(word, friso->domain_rex, &idex)) > 0){
+                    key_entry* entry = *(friso->domain_rex->items + idex);//将标签添加到整句的标签的尾部
                     if(*lable != 0)
                         strcat(lable, "|");
                     strcat(lable, entry->lable);
@@ -440,9 +440,9 @@ static int work_child_process( int client_sockfd, friso_array_t friso_array, fri
         //if(*lable == 0) //因为拼音匹配比较消耗资源，依旧没有标签，才进行拼音匹配
         if(1) //调试阶段，必然进行拼音匹配吧
         {
-                if((similarity = search_pinyin(pinyin, class_lex->class_single, &idex, word)))
+                if((similarity = search_pinyin(pinyin, friso->domain_pinyin, &idex, word)))
                 {
-                    key_entry* entry = *(class_lex->class_single->items + idex);
+                    key_entry* entry = *(friso->domain_pinyin->items + idex);
                     if(strstr(lable, entry->lable) == NULL){
                         if(*lable != 0)
                             strcat(lable, "|");
@@ -456,9 +456,9 @@ static int work_child_process( int client_sockfd, friso_array_t friso_array, fri
                         }
                     }
                 }
-                if((similarity = search_pinyin_rex(pinyin, class_lex->class_rex, &idex, word)))
+                if((similarity = search_pinyin_rex(pinyin, friso->domain_rex, &idex, word)))
                 {
-                    key_entry* entry = *(class_lex->class_rex->items + idex);
+                    key_entry* entry = *(friso->domain_rex->items + idex);
                     if(strstr(lable, entry->lable) == NULL){
                         if(*lable != 0)
                             strcat(lable, "|");
@@ -497,66 +497,6 @@ static int work_child_process( int client_sockfd, friso_array_t friso_array, fri
         return 0;   
 }
 
-int add_dict_to_arry(char *file_path,friso_array_entry *items)
-{
-    FILE *fd;
-    char line_buffer[512], buffer[256];
-    fstring line;
-    string_split_entry sse;
-    fd = fopen(file_path, "r+");
-    while((line = file_get_line(line_buffer, fd)) != NULL)
-    {
-        //log_debug(sa_log, "main", "get %s from file ",line);
-        string_split_reset( &sse, "/", line);
-        if ( string_split_next( &sse, buffer ) == NULL ) {
-                continue;
-        }
-        key_entry* entry_test = (key_entry*)malloc(sizeof(key_entry));
-        array_list_add(items, entry_test);
-
-        entry_test->word = string_copy_heap(buffer, strlen(buffer));
-        //log_debug(sa_log, "main", "word:%s",entry_test->word);
-
-        string_split_next( &sse, buffer );
-        if ( strcmp(buffer, "null") != 0 ) {
-            //log_debug(sa_log, "main", "syn:%s",buffer);
-        }
-        string_split_next( &sse, buffer );
-        if ( strcmp(buffer, "null") != 0 ) {
-            //log_debug(sa_log, "main", "fre:%s",buffer);
-        }
-        string_split_next( &sse, buffer );
-        if ( strcmp(buffer, "null") != 0 ) {
-            entry_test->pinyin = string_copy_heap(buffer, strlen(buffer));
-            //log_debug(sa_log, "main", "pinyin:%s",entry_test->pinyin);
-        }else{
-            entry_test->pinyin = NULL;
-        }
-        string_split_next( &sse, buffer );
-        if ( strcmp(buffer, "null") != 0 ) {
-            entry_test->lable = string_copy_heap(buffer, strlen(buffer));
-            //log_debug(sa_log, "main", "lable:%s",entry_test->lable);
-        }
-        entry_test->word_list = new_array_list_with_opacity(2);
-        string_split_reset( &sse, "*", entry_test->word);
-        while(string_split_next( &sse, buffer ) != NULL)
-        {
-            fstring word = string_copy_heap(buffer, strlen(buffer));
-            array_list_add(entry_test->word_list, word);
-            //log_debug(sa_log, "main", "%s",buffer);
-        } 
-        entry_test->py_list = new_array_list_with_opacity(2);
-        string_split_reset( &sse, ",*,", entry_test->pinyin);
-        while(string_split_next( &sse, buffer ) != NULL)
-        {
-            fstring word = string_copy_heap(buffer, strlen(buffer));
-            array_list_add(entry_test->py_list, word);
-            //log_debug(sa_log, "main", "%s",buffer);
-        } 
-    }
-    return 0;
-}
-
 int main(int argc, char **argv) 
 {
 
@@ -570,10 +510,7 @@ int main(int argc, char **argv)
     int client_sockfd;
     int ret = 0;
 	int j = 0;
-    class_lex house_lex;
-    house_lex.class_rex =  new_array_list_with_opacity(512);
-    house_lex.class_single = new_array_list_with_opacity(512);
-
+    
     friso_array_t friso_array = NULL;
 	friso_t friso_tmp;
     friso_config_t config = friso_new_config();;
@@ -632,13 +569,6 @@ int main(int argc, char **argv)
 	printf("Initialized in %fsec\t", (double) ( e_time - s_time ) / CLOCKS_PER_SEC );
 	printf("Mode: %s\t", mode);
 	printf("%s\n", friso_tmp->charset == FRISO_UTF8 ? "UTF-8" : "GBK" );
-
-
-    add_dict_to_arry("/root/dict/house/house_rex.txt", house_lex.class_rex);
-    log_debug(sa_log, "main", "there %d arry in key_rex_arry", house_lex.class_rex->length);
-    add_dict_to_arry("/root/dict/house/house.txt", house_lex.class_single);
-    log_debug(sa_log, "main", "there %d arry in key_rex_arry", house_lex.class_single->length);
-    //print_key_items(key_rex_arry);
 
    while(run_flag){
         tv.tv_sec = READ_TIMEOUT_SEC;
@@ -708,7 +638,6 @@ err:
 		friso_free(friso_tmp);
 	}     
 
-    free_class_lex(&house_lex);
     nlp_zlog_uninit(&sa_log);
     return 0;
 }
