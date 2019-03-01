@@ -416,6 +416,18 @@ FRISO_API int friso_mysql_init_from_ifile(
 										friso_dic_load_by_sql( friso_tmp, config, __LEX_CJK_WORDS__, mysqlRow[0], config->max_len * (friso_tmp->charset == FRISO_UTF8 ? 3 : 2));
 									}								
 								}
+								//get the number of lex
+								if ((ret = mysql_query(config->mysql, "show tables")))
+								{
+									fprintf(stderr, ">数据查询错误!错误代码:%d\n", ret);
+  								}
+								MYSQL_RES * mysqlResult = NULL;
+								MYSQL_ROW mysqlRow;
+								mysqlResult = mysql_store_result(config->mysql);
+								if ((mysqlResult == NULL))
+								{
+									fprintf(stderr, ">数据查询失败! %d:%s\n", mysql_errno(config->mysql), mysql_error(config->mysql));
+								}
 								while ((mysqlRow = mysql_fetch_row(mysqlResult)))
 								{
 									if(strstr(mysqlRow[0], "domain_") != mysqlRow[0]){		

@@ -511,7 +511,7 @@ int main(int argc, char **argv)
     int ret = 0;
 	int j = 0;
     
-    friso_array_t friso_array = new_array_list_with_opacity( uint_t opacity );
+    friso_array_t friso_array = new_array_list_with_opacity( 12);
 	friso_t friso_tmp;
     friso_config_t config = friso_new_config();;
     
