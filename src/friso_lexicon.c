@@ -612,7 +612,7 @@ FRISO_API void friso_dic_load_by_sql(
 
 		if(flag == 1){
 			if(lex_entry != NULL){
-				if((strchr(_word, ' ') && NULL) || (strchr(_word, ' ') == NULL) && (strchr(_word, '*') == NULL) && (strchr(_word, '*') == NULL)){
+				if((strchr(_word, ' ') == NULL) && (strchr(_word, ' ') == NULL) && (strchr(_word, '*') == NULL) && (strchr(_word, '*') == NULL)){
 					array_list_add(friso->domain_pinyin, lex_entry);
 					printf("add [%s][%s][%s] to pinyin list %s\n",_word, _pinyin, _lable, friso->domain);
 				}else{
