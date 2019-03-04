@@ -4,7 +4,7 @@
 #include "pinyin.h"
 #include "py_code.h"
 #include "friso_API.h"
-
+#include "friso.h"
 
 int py_entry_to_code(char *py, char *code, char *class_code)
 {
