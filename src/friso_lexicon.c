@@ -596,7 +596,9 @@ FRISO_API void friso_dic_load_by_sql(
            sywords = array_list_trim( sywords );
          }           		
 
-      	//add the word item
+	if((strchr(_word, ' ') == NULL) && (strchr(_word, ' ') == NULL) && (strchr(_word, '*') == NULL) && (strchr(_word, '*') == NULL)){
+
+		//add the word item
       	friso_dic_add_with_fre( 
        		friso->dic, lex, _word, sywords, _fre );
       	//add pinyin    
@@ -609,6 +611,8 @@ FRISO_API void friso_dic_load_by_sql(
             lex_entry = friso_dic_add_lable( 
                     friso->dic, lex, _word, _lable);
       	}
+		
+	}
 
 		if(flag == 1){
 			if(lex_entry != NULL){
