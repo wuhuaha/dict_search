@@ -330,6 +330,12 @@ FRISO_API void friso_dic_free( friso_dic_t );
 //create a new lexicon entry.
 FRISO_API lex_entry_t new_lex_entry( fstring, friso_array_t, uint_t, uint_t, uint_t );
 
+FRISO_API key_rex_entry_t new_key_rex_entry( 
+				fstring , 
+				fstring , 
+				fstring);
+
+
 //free the given lexicon entry.
 //free all the allocations that its synonyms word's items pointed to
 //when the second arguments is 1

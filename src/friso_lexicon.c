@@ -101,6 +101,25 @@ FRISO_API lex_entry_t new_lex_entry(
     return e;
 }
 
+FRISO_API key_rex_entry_t new_key_rex_entry( 
+				fstring word, 
+				fstring pinyin, 
+				fstring label) 
+{
+	key_rex_entry_t e = ( key_rex_entry_t )
+			FRISO_MALLOC( sizeof( key_rex_entry ));
+	if( e == NULL ){
+		___ALLOCATION_ERROR___
+	}
+	e->word = word;
+	e->pinyin = pinyin;
+	e->lable = label;
+	e->word_list = NULL;
+	e->py_list = NULL;
+}
+
+
+
 /**
  * free the given lexicon entry.
  * you have to do three thing maybe:
@@ -622,16 +641,11 @@ FRISO_API void friso_dic_load_by_sql(
 		
 		}else{
 			if(flag == 1){
-				printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
-				key_rex->word = _word;
-				key_rex->pinyin = _pinyin;
-				key_rex->lable = _lable;
-				printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
+				//printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
+				key_rex= new_key_rex_entry(_word, _pinyin, _lable);
 				key_rex->word_list = new_array_list_with_opacity(2);
-				printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
         		key_rex->py_list = new_array_list_with_opacity(2);
 				
-				printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
         		string_split_reset( &sse, "*", key_rex->word);
         		while(string_split_next( &sse, _buffer ) != NULL)
        	 		{
