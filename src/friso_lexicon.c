@@ -616,6 +616,10 @@ FRISO_API void friso_dic_load_by_sql(
 					array_list_add(friso->domain_pinyin, lex_entry);
 					printf("add [%s][%s][%s] to pinyin list %s\n",_word, _pinyin, _lable, friso->domain);
 				}else{
+					lex_entry = new_lex_entry( _word, _syn, _fre, 
+                    	( uint_t ) strlen(_word), ( uint_t ) lex ));
+					lex_entry->py = _pinyin;
+					lex_entry->lable = _lable;
 					array_list_add(friso->domain_rex, lex_entry);
 					printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
 				}
