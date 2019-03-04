@@ -640,7 +640,7 @@ FRISO_API void friso_dic_load_by_sql(
             		array_list_add(key_rex->py_list, word);
             		//log_debug(sa_log, "main", "%s",buffer);
         		} 
-				array_list_add(friso->domain_rex, key_lex);
+				array_list_add(friso->domain_rex, key_rex);
 				printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
 			}
 		}
