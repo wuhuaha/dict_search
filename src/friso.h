@@ -77,7 +77,15 @@ typedef struct {
 } friso_entry;
 typedef friso_entry * friso_t;
 
+typedef struct {
+    fstring word;//词内容
+    fstring pinyin;//词拼音
+    fstring lable; //标签
+    friso_array_t word_list;
+    friso_array_t py_list;
+} key_rex_entry;
 
+typedef key_rex_entry * key_rex_entry_t;
 
 /*
  * Type: lex_entry_cdt

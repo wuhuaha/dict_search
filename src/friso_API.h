@@ -170,14 +170,6 @@ typedef struct {
 
 typedef friso_array_entry * friso_array_t;
 
-typedef struct {
-    fstring word;//词内容
-    fstring pinyin;//词拼音
-    fstring lable; //标签
-    friso_array_t word_list;
-    friso_array_t py_list;
-} key_entry;
-
 typedef struct  {
     friso_array_t class_single;
     friso_array_t class_rex;
@@ -458,6 +450,13 @@ FRISO_API void free_array_all(
 */
 
 #define free_array_dicts(array)	free_array_all(array, default_fdic_callback)
+
+/*
+* free the given friso lex array.
+*	  and its items, and where its items item pointed to . 
+*/
+FRISO_API void free_array_lex( friso_array_t array );
+
 
 #endif /*end ifndef*/
 

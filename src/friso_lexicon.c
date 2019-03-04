@@ -514,6 +514,7 @@ FRISO_API void friso_dic_load_by_sql(
 	string_split_entry sse;
 	int flag = 0;
 	lex_entry_t  lex_entry;
+	key_rex_entry_t  key_rex;
 
 	if(strstr(lex_table, "domain_") == lex_table){
 		flag = 1;
@@ -542,6 +543,7 @@ FRISO_API void friso_dic_load_by_sql(
 	{
 		//word
 		lex_entry = NULL;
+		key_lex = NULL;
 		_word = string_copy_heap( mysqlRow[0], strlen(mysqlRow[0]));
 		//friso_dic_add( friso->dic, lex, _word, NULL ); 
 		//syn
@@ -596,39 +598,53 @@ FRISO_API void friso_dic_load_by_sql(
            sywords = array_list_trim( sywords );
          }           		
 
-	if((strchr(_word, ' ') == NULL) && (strchr(_word, ' ') == NULL) && (strchr(_word, '*') == NULL) && (strchr(_word, '*') == NULL)){
+		if((strchr(_word, ' ') == NULL) && (strchr(_word, ' ') == NULL) && (strchr(_word, '*') == NULL) && (strchr(_word, '*') == NULL)){
 
-		//add the word item
-      	friso_dic_add_with_fre( 
-       		friso->dic, lex, _word, sywords, _fre );
-      	//add pinyin    
-      	if( (_pinyin != NULL) && (strcmp(_pinyin, "null") != 0) ) {
-      		friso_dic_add_pinyin( 
+			//add the word item
+      		friso_dic_add_with_fre( 
+       			friso->dic, lex, _word, sywords, _fre );
+      		//add pinyin    
+      		if( (_pinyin != NULL) && (strcmp(_pinyin, "null") != 0) ) {
+      			friso_dic_add_pinyin( 
                     friso->dic, lex, _word, _pinyin);
-       	}
-        //add lable    
-      	if( (_lable != NULL) && (strcmp(_lable, "null") != 0) ){
-            lex_entry = friso_dic_add_lable( 
+       		}
+        	//add lable    
+      		if( (_lable != NULL) && (strcmp(_lable, "null") != 0) ){
+            	lex_entry = friso_dic_add_lable( 
                     friso->dic, lex, _word, _lable);
-      	}
-		
-	}
+      		}
 
-		if(flag == 1){
-			if(lex_entry != NULL){
-				if((strchr(_word, ' ') == NULL) && (strchr(_word, ' ') == NULL) && (strchr(_word, '*') == NULL) && (strchr(_word, '*') == NULL)){
-					array_list_add(friso->domain_pinyin, lex_entry);
-					printf("add [%s][%s][%s] to pinyin list %s\n",_word, _pinyin, _lable, friso->domain);
-				}else{
-					lex_entry = new_lex_entry( _word, sywords, _fre, 
-                    	( uint_t ) strlen(_word), ( uint_t ) lex );
-					lex_entry->py = _pinyin;
-					lex_entry->lable = _lable;
-					array_list_add(friso->domain_rex, lex_entry);
-					printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
-				}
+			if(flag == 1){
+				array_list_add(friso->domain_pinyin, lex_entry);
+				printf("add [%s][%s][%s] to pinyin list %s\n",_word, _pinyin, _lable, friso->domain);
+			}
+		
+		}else{
+			if(flag == 1){
+				key_rex->word = _word;
+				key_rex->pinyin = _pinyin;
+				key_rex->lable = _lable;
+				key_rex->word_list = new_array_list_with_opacity(2);
+        		string_split_reset( &sse, "*", key_rex->word);
+        		while(string_split_next( &sse, _buffer ) != NULL)
+       	 		{
+            		fstring word = string_copy_heap(_buffer, strlen(_buffer));
+            		array_list_add(key_rex->word_list, word);
+            		//log_debug(sa_log, "main", "%s",buffer);
+        		} 
+        		key_lex->py_list = new_array_list_with_opacity(2);
+        		string_split_reset( &sse, ",*,", key_rex->pinyin);
+        		while(string_split_next( &sse, _buffer ) != NULL)
+        		{
+            		fstring word = string_copy_heap(_buffer, strlen(_buffer));
+            		array_list_add(key_rex->py_list, word);
+            		//log_debug(sa_log, "main", "%s",buffer);
+        		} 
+				array_list_add(friso->domain_rex, key_lex);
+				printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
 			}
 		}
+
 	}
 	mysql_free_result(mysqlResult);
 	return;

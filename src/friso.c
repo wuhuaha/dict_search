@@ -522,8 +522,11 @@ FRISO_API void friso_free( friso_t friso )
     if ( friso->dic != NULL ) {
         friso_dic_free( friso->dic );
     }
-	free_array_dicts(friso->domain_pinyin);
-	free_array_dicts(friso->domain_rex);
+	//因为完整词的列表元素是在词典中的元素指针，在词典释放的时候就会释放，所以这里不用释放了
+	FRISO_FREE(friso->domain_pinyin);
+	//free_array_dicts(friso->domain_pinyin);
+	//free_array_dicts(friso->domain_rex);
+	free_array_lex(friso->domain_rex);
     FRISO_FREE( friso );
 }
 /* }}} */

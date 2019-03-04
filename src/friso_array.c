@@ -111,6 +111,41 @@ FRISO_API void free_array_all(
     FRISO_FREE( array );
 }
 
+/*
+ * free the given friso lex array.
+ *	  and its items, and where its items item pointed to . 
+ */
+FRISO_API void free_array_lex( friso_array_t array ) 
+{
+	register int t, j;
+	key_rex_entry_t key_rex = NULL;
+	friso_array_t word, py;
+	for ( t = 0; t < array->length; t++ ) {
+		if ( array->items[t] == NULL ) continue;
+		key_rex = array->items[t];
+		FRISO_FREE(key_rex->lable);
+		FRISO_FREE(key_rex->word);
+		FRISO_FREE(key_rex->pinyin);
+		
+		//free key_list and py_list
+		word = key_rex->word_list;
+		py = key_rex->py_list;
+		for ( j = 0; j < word->length; j++ ){
+			FRISO_FREE(word->items[j]);
+		} 
+		for ( j = 0; j < py->length; j++ ){
+			FRISO_FREE(py->items[j]);
+		}
+		FRISO_FREE(word->items);
+		FRISO_FREE(py->items);
+
+		FRISO_FREE(array->items[t]);
+		array->items[t] = NULL;
+	}
+	FRISO_FREE( array->items );
+	FRISO_FREE( array );
+}
+
 
 //add a new item to the array.
 FRISO_API void array_list_add( friso_array_t array, void *value ) 
