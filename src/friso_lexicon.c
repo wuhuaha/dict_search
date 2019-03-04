@@ -622,6 +622,7 @@ FRISO_API void friso_dic_load_by_sql(
 		
 		}else{
 			if(flag == 1){
+				printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
 				key_rex->word = _word;
 				key_rex->pinyin = _pinyin;
 				key_rex->lable = _lable;
