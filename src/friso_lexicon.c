@@ -116,6 +116,8 @@ FRISO_API key_rex_entry_t new_key_rex_entry(
 	e->lable = label;
 	e->word_list = NULL;
 	e->py_list = NULL;
+
+	return e;
 }
 
 
