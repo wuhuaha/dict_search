@@ -504,6 +504,7 @@ FRISO_API void friso_dic_load_by_sql(
     fstring _syn;
 	fstring _pinyin;
     fstring _lable;
+	fstring tmp;
     friso_array_t sywords;
     uint_t _fre;
 	int ret = 0;
@@ -625,23 +626,25 @@ FRISO_API void friso_dic_load_by_sql(
 				key_rex->pinyin = _pinyin;
 				key_rex->lable = _lable;
 				key_rex->word_list = new_array_list_with_opacity(2);
+        		key_rex->py_list = new_array_list_with_opacity(2);
+				
+				printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
         		string_split_reset( &sse, "*", key_rex->word);
         		while(string_split_next( &sse, _buffer ) != NULL)
        	 		{
-            		fstring word = string_copy_heap(_buffer, strlen(_buffer));
-            		array_list_add(key_rex->word_list, word);
+            		tmp = string_copy_heap(_buffer, strlen(_buffer));
+            		array_list_add(key_rex->word_list, tmp);
             		//log_debug(sa_log, "main", "%s",buffer);
         		} 
-        		key_rex->py_list = new_array_list_with_opacity(2);
         		string_split_reset( &sse, ",*,", key_rex->pinyin);
         		while(string_split_next( &sse, _buffer ) != NULL)
         		{
-            		fstring word = string_copy_heap(_buffer, strlen(_buffer));
-            		array_list_add(key_rex->py_list, word);
+            		tmp = string_copy_heap(_buffer, strlen(_buffer));
+            		array_list_add(key_rex->py_list, tmp);
             		//log_debug(sa_log, "main", "%s",buffer);
         		} 
 				array_list_add(friso->domain_rex, key_rex);
-				printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
+				printf("added [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
 			}
 		}
 
