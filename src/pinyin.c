@@ -195,7 +195,7 @@ int search_pinyin(fstring py, friso_array_t key_list, int* result, char *word)
 {
     register int i = 0;
     register int similarity = -1, sim_tmp, class_sim_tmp, sim_idex = 0;
-    register key_entry* entry;
+    register lex_entry_t entry;
     int place = 0;
     char code_word[256] = "", code_entry[64] = "", class_word[256] = "", class_entry[64] = "", tone_word[256] = "", tone_entry[64] = "";
     if((strlen(py) >= 255) || (py == NULL) || (key_list == NULL) || (result == NULL) || (*py == 0)){
@@ -209,14 +209,14 @@ int search_pinyin(fstring py, friso_array_t key_list, int* result, char *word)
     {
         //计算code编辑距离
         entry = *(key_list->items + i);
-        if((strstr(py, entry->pinyin)) != NULL) //直接包含
+        if((strstr(py, entry->py)) != NULL) //直接包含
         {
             similarity = 100;
             //printf("包含匹配，结果:%s,标签：%s\n", entry->word, entry->lable);
             *result = i;
             return similarity;
         }
-        py_to_code(entry->pinyin, code_entry, class_entry);
+        py_to_code(entry->py, code_entry, class_entry);
         if((sim_tmp =  compute_edit_distance(code_word, code_entry, &place)) == 100)
         {
             similarity = 100;
@@ -270,7 +270,7 @@ int search_pinyin_rex(fstring py, friso_array_t key_list, int* result, char *wor
 {
     register int i = 0, j = 0, len = 0;
     register int similarity = -1, sim_tmp, sim_arry_tmp, class_sim_tmp, sim_idex = 0;
-    register key_entry* entry;
+    register key_rex_entry_t entry;
     char *tmp = NULL;
     int place = 0, place_tmp = 0;
     char code_word[256] = "", code_entry[64] = "", class_word[256] = "", class_entry[64] = "", tone_word[256] = "", tone_entry[64] = "";

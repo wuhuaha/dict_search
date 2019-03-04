@@ -110,46 +110,13 @@ typedef struct run_arg_tag{
 static int run_flag = TRUE;     //运行控制变量
 SZ_RUN_ARG_S g_sz_run_arg = {0};  //运行参数，通过参数传入
 
-int free_key_entry( key_entry *entry )
-{
-    SAFE_FREE(entry->word)
-    SAFE_FREE(entry->pinyin)
-    SAFE_FREE(entry->lable)
-    SAFE_FREE(entry)
-    return 0;
-}
-
-int free_key_items(friso_array_entry* items)
-{
-    register int i = 0;
-    if (items == NULL){
-        return 0;
-    }
-    for(i = 0; i < items->length; i++)
-    {
-        free_key_entry(*(items->items + i));
-    }    
-    SAFE_FREE(items->items)
-    return 0;
-}
-
-int free_class_lex( class_lex_t  class_lex )
-{
-    if (class_lex == NULL){
-        return 0;
-    }
-    free_key_items(class_lex->class_rex);
-    free_key_items(class_lex->class_single);
-    return 0;
-}
-
 int print_key_items(friso_array_entry* items)
 {
     register int i = 0, j = 0;
     if (items == NULL){
         return 0;
     }
-    register key_entry* entry;
+    register key_rex_entry_t entry;
     for(i = 0; i < items->length; i++)
     {
         entry = *(items->items + i);
@@ -164,7 +131,7 @@ int print_key_items(friso_array_entry* items)
 static int rex_string(fstring string,friso_array_entry* items, int* result)
 {
     register int i = 0, j = 0;
-    register key_entry* entry;
+    register key_rex_entry_t entry;
     register char *tmp = NULL;
     if( (items == NULL) || (result == NULL) ){
         return 0;
@@ -427,7 +394,7 @@ static int work_child_process( int client_sockfd, friso_array_t friso_array, fri
         if(1)
         {
                 if((rex_string(word, friso->domain_rex, &idex)) > 0){
-                    key_entry* entry = *(friso->domain_rex->items + idex);//将标签添加到整句的标签的尾部
+                    key_rex_entry* entry = *(friso->domain_rex->items + idex);//将标签添加到整句的标签的尾部
                     if(*lable != 0)
                         strcat(lable, "|");
                     strcat(lable, entry->lable);
@@ -442,7 +409,7 @@ static int work_child_process( int client_sockfd, friso_array_t friso_array, fri
         {
                 if((similarity = search_pinyin(pinyin, friso->domain_pinyin, &idex, word)))
                 {
-                    key_entry* entry = *(friso->domain_pinyin->items + idex);
+                    lex_entry_t  entry = *(friso->domain_pinyin->items + idex);
                     if(strstr(lable, entry->lable) == NULL){
                         if(*lable != 0)
                             strcat(lable, "|");
@@ -458,7 +425,7 @@ static int work_child_process( int client_sockfd, friso_array_t friso_array, fri
                 }
                 if((similarity = search_pinyin_rex(pinyin, friso->domain_rex, &idex, word)))
                 {
-                    key_entry* entry = *(friso->domain_rex->items + idex);
+                    key_rex_entry* entry = *(friso->domain_rex->items + idex);
                     if(strstr(lable, entry->lable) == NULL){
                         if(*lable != 0)
                             strcat(lable, "|");

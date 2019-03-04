@@ -543,7 +543,7 @@ FRISO_API void friso_dic_load_by_sql(
 	{
 		//word
 		lex_entry = NULL;
-		key_lex = NULL;
+		key_rex = NULL;
 		_word = string_copy_heap( mysqlRow[0], strlen(mysqlRow[0]));
 		//friso_dic_add( friso->dic, lex, _word, NULL ); 
 		//syn
@@ -632,7 +632,7 @@ FRISO_API void friso_dic_load_by_sql(
             		array_list_add(key_rex->word_list, word);
             		//log_debug(sa_log, "main", "%s",buffer);
         		} 
-        		key_lex->py_list = new_array_list_with_opacity(2);
+        		key_rex->py_list = new_array_list_with_opacity(2);
         		string_split_reset( &sse, ",*,", key_rex->pinyin);
         		while(string_split_next( &sse, _buffer ) != NULL)
         		{
