@@ -626,7 +626,9 @@ FRISO_API void friso_dic_load_by_sql(
 				key_rex->word = _word;
 				key_rex->pinyin = _pinyin;
 				key_rex->lable = _lable;
+				printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
 				key_rex->word_list = new_array_list_with_opacity(2);
+				printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
         		key_rex->py_list = new_array_list_with_opacity(2);
 				
 				printf("add [%s][%s][%s] to lex list %s\n",_word, _pinyin, _lable, friso->domain);
